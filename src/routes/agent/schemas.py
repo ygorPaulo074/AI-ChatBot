@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from ..base_schemas import AgentContext
+from ..base_schemas import AgentContext, AgentContextBase
 
 
 class AgentCreateRequest(BaseModel):
@@ -18,15 +18,14 @@ class AgentGetResponse(BaseModel):
     agent_id: str
     name: str
     owner: str
-    tags: List[str]
+    tags: List[str] = []
     created_at: str
     updated_at: str
     active_since: Optional[str] = None
     last_activity_at: Optional[str] = None
 
 
-
-class AgentContextResponse(AgentContext):
+class AgentContextResponse(AgentContextBase):
     agent_id: str
     version: int
 
@@ -65,5 +64,4 @@ class AgentUpdateContextResponse(BaseModel):
 
 
 class AgentDeleteResponse(BaseModel):
-    success: bool
     deleted_at: str

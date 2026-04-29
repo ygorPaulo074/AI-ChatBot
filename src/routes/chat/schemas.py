@@ -4,6 +4,7 @@ from typing import List, Optional, Literal
 
 class ChatRequest(BaseModel):
     session_id: str
+    user_id: Optional[str] = None
     message: str
 
 
@@ -17,7 +18,7 @@ class SessionInfo(BaseModel):
     session_id: str
     agent_id: str
     model: str
-    created_at: str
+    started_at: str
     response_time_ms: int
     tokens: TokenUsage
 
@@ -28,8 +29,8 @@ class Message(BaseModel):
     content: str
     timestamp: str
     status: Literal["delivered", "pending", "failed", "escalated"]
-    tokens: int
-    response_time_ms: Optional[int] = None  
+    tokens: Optional[int] = None
+    response_time_ms: Optional[int] = None
 
 
 class ConversationEntry(BaseModel):

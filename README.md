@@ -1,5 +1,45 @@
 # Chatbot API — IA Conversacional
 
+## Índice
+
+- [Conceito](#conceito)
+- [Inicialização](#inicialização)
+- [Funcionalidades](#funcionalidades)
+- [Fluxo de Uso](#fluxo-de-uso)
+- [Autenticação](#autenticação)
+- [Agente](#agente)
+  - [POST /agent](#post-agent)
+  - [GET /agent](#get-agent)
+  - [GET /agent/context](#get-agentcontext)
+  - [GET /agent/context/history](#get-agentcontexthistory)
+  - [GET /agent/metrics](#get-agentmetrics)
+  - [PUT /agent/context](#put-agentcontext)
+  - [DELETE /agent](#delete-agent)
+- [Chat](#chat)
+  - [POST /chat](#post-chat)
+- [Data](#data)
+  - [GET /data/chat](#get-datachat)
+  - [GET /data/chat/{session\_id}](#get-datachatsession_id)
+  - [GET /data/chat/{session\_id}/insights](#get-datachatsession_idinsights)
+  - [GET /data/chat/{session\_id}/insights/sentiment](#get-datachatsession_idinsightssentiment)
+  - [GET /data/chat/{session\_id}/insights/topics](#get-datachatsession_idinsightstopics)
+  - [GET /data/chat/{session\_id}/insights/metrics](#get-datachatsession_idinsightsmetrics)
+  - [GET /data/chat/{session\_id}/insights/suggestions](#get-datachatsession_idinsightssuggestions)
+  - [DELETE /data/chat/{session\_id}](#delete-datachatsession_id)
+  - [GET /data/context](#get-datacontext)
+  - [GET /data/context/{user\_id}](#get-datacontextuser_id)
+  - [DELETE /data/context/{user\_id}](#delete-datacontextuser_id)
+  - [GET /data/analytics](#get-dataanalytics)
+- [Estrutura de Arquivos](#estrutura-de-arquivos)
+- [Pasta data/](#pasta-data)
+- [Contexto dos Agentes](#contexto-dos-agentes)
+- [Análise Local de Conversas](#análise-local-de-conversas)
+- [Requisitos](#requisitos)
+- [Instalação](#instalação)
+
+---
+
+<a id="conceito"></a>
 ## Conceito
 
 API de IA conversacional projetada para ser consumida por projetos externos. Abstrai toda a complexidade de comunicação com o modelo de IA, geração de contexto e rastreamento de conversas, expondo uma interface simples e padronizada via HTTP.
@@ -9,6 +49,8 @@ O projeto é agnóstico ao domínio de negócio — pode servir como base para a
 A persistência dos dados é responsabilidade do consumidor. A API retorna JSONs completos a cada interação, contendo dados da sessão e histórico da conversa, para que o consumidor armazene da forma que preferir.
 
 ---
+
+<a id="inicialização"></a>
 ## Inicialização
 
 ## `tools/setup.py`
@@ -62,6 +104,7 @@ Ao final, dois arquivos são criados na raiz do projeto:
 
 ---
 
+<a id="funcionalidades"></a>
 ## Funcionalidades
 
 - **Criação de agentes** configurados a partir dos dados fornecidos pelo usuário, definindo precisamente como a IA deve se comportar
@@ -76,6 +119,7 @@ Ao final, dois arquivos são criados na raiz do projeto:
 
 ---
 
+<a id="fluxo-de-uso"></a>
 ## Fluxo de Uso
 
 ```
@@ -88,6 +132,7 @@ Ao final, dois arquivos são criados na raiz do projeto:
 
 ---
 
+<a id="autenticação"></a>
 ## Autenticação
 
 Todas as rotas exigem autenticação via API Key obtida na criação do agente:
@@ -98,8 +143,10 @@ Authorization: Bearer sk-...
 
 ---
 
+<a id="agente"></a>
 ## Agente
 
+<a id="post-agent"></a>
 ### `POST /agent`
 
 Cria um agente, processa seu contexto via `context_builder.py` e armazena em `context.xml`. Retorna a API Key que autentica todas as requisições subsequentes.
@@ -176,6 +223,7 @@ Em caso de falha:
 }
 ```
 
+<a id="get-agent"></a>
 ### `GET /agent`
 
 Retorna os dados base do agente autenticado: identificação, owner e timestamps.
@@ -194,6 +242,7 @@ Retorna os dados base do agente autenticado: identificação, owner e timestamps
 }
 ```
 
+<a id="get-agentcontext"></a>
 ### `GET /agent/context`
 
 Retorna a configuração completa do contexto atual do agente.
@@ -231,6 +280,7 @@ Retorna a configuração completa do contexto atual do agente.
 }
 ```
 
+<a id="get-agentcontexthistory"></a>
 ### `GET /agent/context/history`
 
 Retorna o histórico de versões do contexto do agente. Útil para auditar mudanças de comportamento da IA ao longo do tempo.
@@ -254,6 +304,7 @@ Retorna o histórico de versões do contexto do agente. Útil para auditar mudan
 }
 ```
 
+<a id="get-agentmetrics"></a>
 ### `GET /agent/metrics`
 
 Retorna as métricas do agente autenticado.
@@ -272,6 +323,7 @@ Retorna as métricas do agente autenticado.
 }
 ```
 
+<a id="put-agentcontext"></a>
 ### `PUT /agent/context`
 
 Atualiza as configurações do agente, regenera o `context.xml` e incrementa a versão do contexto automaticamente.
@@ -284,12 +336,15 @@ Atualiza as configurações do agente, regenera o `context.xml` e incrementa a v
 }
 ```
 
+<a id="delete-agent"></a>
 ### `DELETE /agent`
 
 Remove o agente, seu `context.xml` e todos os dados associados em `data/agents/{agent_id}/`.
 
+<a id="chat"></a>
 ## Chat
 
+<a id="post-chat"></a>
 ### `POST /chat`
 
 Envia uma mensagem para a IA e retorna a resposta processada. O contexto do agente é injetado automaticamente a partir do `context.xml`. Após cada resposta, o script de análise local processa a mensagem e atualiza os scores de sentimento e tópicos da sessão sem consumo de tokens.
@@ -298,6 +353,7 @@ Envia uma mensagem para a IA e retorna a resposta processada. O contexto do agen
 ```json
 {
   "session_id": "abc123",
+  "user_id": "user_456",
   "message": "Qual o prazo de entrega?"
 }
 ```
@@ -309,7 +365,7 @@ Envia uma mensagem para a IA e retorna a resposta processada. O contexto do agen
     "session_id": "abc123",
     "agent_id": "agent_789",
     "model": "claude-sonnet-4",
-    "created_at": "2026-04-25T18:00:00Z",
+    "started_at": "2026-04-25T18:00:00Z",
     "response_time_ms": 340,
     "tokens": {
       "input": 120,
@@ -349,8 +405,10 @@ Envia uma mensagem para a IA e retorna a resposta processada. O contexto do agen
 - `failed` — erro no processamento
 - `escalated` — mensagem que trigou escalonamento humano
 
+<a id="data"></a>
 ## Data
 
+<a id="get-datachat"></a>
 ### `GET /data/chat`
 
 Retorna a listagem de todas as conversas do agente autenticado.
@@ -374,6 +432,7 @@ Retorna a listagem de todas as conversas do agente autenticado.
 }
 ```
 
+<a id="get-datachatsession_id"></a>
 ### `GET /data/chat/{session_id}`
 
 Retorna o histórico completo de uma conversa específica.
@@ -417,6 +476,7 @@ Retorna o histórico completo de uma conversa específica.
 }
 ```
 
+<a id="get-datachatsession_idinsights"></a>
 ### `GET /data/chat/{session_id}/insights`
 
 Retorna o dataframe completo de insights de uma sessão. Consolida três fontes de dados:
@@ -444,9 +504,9 @@ Por ser um payload denso, recomenda-se usar as rotas abstraídas abaixo quando a
   },
   "topics": {
     "detected": ["entrega", "prazo", "atraso"],
-    "main_topic": "atraso na entrega"
+    "main_topic": "atraso na entrega",
+    "intent": "reembolso"
   },
-  "intent": "reembolso",
   "resolution": "escalated",
   "metrics": {
     "total_messages": 8,
@@ -474,6 +534,7 @@ Por ser um payload denso, recomenda-se usar as rotas abstraídas abaixo quando a
 }
 ```
 
+<a id="get-datachatsession_idinsightssentiment"></a>
 ### `GET /data/chat/{session_id}/insights/sentiment`
 
 Retorna apenas os dados de sentimento da sessão — gerados localmente, sem consumo de tokens.
@@ -494,6 +555,7 @@ Retorna apenas os dados de sentimento da sessão — gerados localmente, sem con
 }
 ```
 
+<a id="get-datachatsession_idinsightstopics"></a>
 ### `GET /data/chat/{session_id}/insights/topics`
 
 Retorna os tópicos detectados na sessão — gerados localmente via `spaCy`, sem consumo de tokens.
@@ -510,6 +572,7 @@ Retorna os tópicos detectados na sessão — gerados localmente via `spaCy`, se
 }
 ```
 
+<a id="get-datachatsession_idinsightsmetrics"></a>
 ### `GET /data/chat/{session_id}/insights/metrics`
 
 Retorna as métricas quantitativas da sessão — calculadas localmente, sem consumo de tokens.
@@ -529,6 +592,7 @@ Retorna as métricas quantitativas da sessão — calculadas localmente, sem con
 }
 ```
 
+<a id="get-datachatsession_idinsightssuggestions"></a>
 ### `GET /data/chat/{session_id}/insights/suggestions`
 
 Retorna as ações sugeridas e análise geradas pela IA. **Esta é a única sub-rota de insights que consome tokens.**
@@ -552,10 +616,12 @@ Retorna as ações sugeridas e análise geradas pela IA. **Esta é a única sub-
 }
 ```
 
+<a id="delete-datachatsession_id"></a>
 ### `DELETE /data/chat/{session_id}`
 
 Remove uma sessão de conversa específica e seus dados em `data/agents/{agent_id}/chats/{session_id}/`.
 
+<a id="get-datacontext"></a>
 ### `GET /data/context`
 
 Retorna todos os contextos de usuários atendidos pelo agente autenticado.
@@ -578,6 +644,7 @@ Retorna todos os contextos de usuários atendidos pelo agente autenticado.
 }
 ```
 
+<a id="get-datacontextuser_id"></a>
 ### `GET /data/context/{user_id}`
 
 Retorna o contexto de um usuário específico.
@@ -599,10 +666,12 @@ Retorna o contexto de um usuário específico.
 }
 ```
 
+<a id="delete-datacontextuser_id"></a>
 ### `DELETE /data/context/{user_id}`
 
 Remove o contexto de um usuário específico.
 
+<a id="get-dataanalytics"></a>
 ### `GET /data/analytics`
 
 Retorna uma visão analítica completa e agregada de todas as conversas do agente autenticado. Alimentada pelos scores locais gerados durante o `POST /chat`. Projetada para consumo por dashboards, sistemas de RAG e ferramentas de análise de negócio.
@@ -679,6 +748,7 @@ Retorna uma visão analítica completa e agregada de todas as conversas do agent
 
 ---
 
+<a id="estrutura-de-arquivos"></a>
 ## Estrutura de Arquivos
 
 ```
@@ -733,6 +803,7 @@ AI-ChatBot/
 
 ---
 
+<a id="pasta-data"></a>
 ## Pasta `data/`
 
 A pasta `data/` é gerada automaticamente em runtime e **não faz parte do repositório**. Sua localização padrão é a raiz do projeto (`AI-ChatBot/data/`), configurável via variável de ambiente `DATA_PATH` no `.env`.
@@ -821,6 +892,7 @@ Gerado pela IA sob demanda via `GET /data/chat/{session_id}/insights` ou `GET /d
 
 ---
 
+<a id="contexto-dos-agentes"></a>
 ## Contexto dos Agentes
 
 ### Campos do contexto
@@ -853,6 +925,7 @@ Gerado pela IA sob demanda via `GET /data/chat/{session_id}/insights` ou `GET /d
 
 ---
 
+<a id="análise-local-de-conversas"></a>
 ## Análise Local de Conversas
 
 As rotas de insights são divididas em dois grupos quanto ao consumo de tokens:
@@ -869,6 +942,7 @@ Os scores locais são gerados automaticamente durante o `POST /chat` e armazenad
 
 ---
 
+<a id="requisitos"></a>
 ## Requisitos
 
 ```
@@ -903,6 +977,7 @@ httpx
 
 ---
 
+<a id="instalação"></a>
 ## Instalação
 
 ### Com Docker (recomendado)

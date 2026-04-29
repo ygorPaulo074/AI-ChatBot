@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import List, Optional, Literal
-from ..base_schemas import AgentContext
+from pydantic import BaseModel, ConfigDict, Field
+from typing import List, Optional, Literal, Dict, Any
+from ..base_schemas import AgentContextBase
 from ..chat.schemas import ConversationEntry
 
 
@@ -100,7 +100,6 @@ class FullInsightResponse(BaseModel):
     generated_at: str
     sentiment: SentimentData
     topics: TopicsData
-    intent: Optional[str] = None
     resolution: Literal["resolved", "escalated", "open"]
     metrics: MetricsData
     agent_context: AgentContextSnapshot
@@ -112,7 +111,7 @@ class FullInsightResponse(BaseModel):
 class UserProfile(BaseModel):
     segment: Optional[str] = None
     language: Optional[str] = None
-    form_answers: Optional[dict] = None
+    form_answers: Optional[Dict[str, Any]] = None
 
 
 class UserContextSummary(BaseModel):
@@ -202,12 +201,9 @@ class TimelineEntry(BaseModel):
 
 
 class AnalyticsPeriod(BaseModel):
-    from_: str = None
-    to: str = None
-
-    class Config:
-        populate_by_name = True
-        fields = {"from_": "from"}
+    model_config = ConfigDict(populate_by_name=True)
+    from_: Optional[str] = Field(None, alias="from")
+    to: Optional[str] = None
 
 
 class AnalyticsResponse(BaseModel):

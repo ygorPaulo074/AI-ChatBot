@@ -10,8 +10,11 @@ __pycache__/
 data/agents/
 
 # Logs
-src/agents/logs/error.log
-src/agents/logs/access.log
+*.log
+
+# Scripts gerados pelo setup
+scripts/
+docker-compose.yml
 
 # Setup
 .initialized

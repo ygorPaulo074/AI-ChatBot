@@ -8,13 +8,13 @@ class FileReference(BaseModel):
 
 
 class RestrictionsConfig(BaseModel):
-    topics: Optional[List[str]] = []
-    files: Optional[List[FileReference]] = []
+    topics: List[str] = []
+    files: List[FileReference] = []
 
 
 class KnowledgeBaseConfig(BaseModel):
-    urls: Optional[List[HttpUrl]] = []
-    files: Optional[List[FileReference]] = []
+    urls: List[HttpUrl] = []
+    files: List[FileReference] = []
 
 
 class EscalationCondition(BaseModel):
@@ -29,14 +29,17 @@ class EscalationTrigger(BaseModel):
     conditions: List[EscalationCondition]
 
 
-class AgentContext(BaseModel):
+class AgentContextBase(BaseModel):
     tone: Optional[Literal["formal", "informal", "neutro"]] = None
-    language: Optional[str] = None           # ex: "pt-BR", "en-US"
-    segment: Optional[str] = None            # ex: "ecommerce", "saas"
+    language: Optional[str] = None
+    segment: Optional[str] = None
     persona: Optional[str] = None
     behavior: Optional[str] = None
     fallback_message: Optional[str] = None
-    tags: Optional[List[str]] = []
     restrictions: Optional[RestrictionsConfig] = None
     knowledge_base: Optional[KnowledgeBaseConfig] = None
     escalation_trigger: Optional[EscalationTrigger] = None
+
+
+class AgentContext(AgentContextBase):
+    tags: List[str] = []
