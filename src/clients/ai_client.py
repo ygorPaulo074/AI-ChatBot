@@ -4,7 +4,7 @@ Abstrai o provedor (Anthropic, OpenAI, Gemini, DeepSeek, Groq), gerencia
 API key, modelo e timeout. Expõe interface única de completion para o ai_service.
 """
 import litellm
-from typing import Any, cast
+from typing import cast
 from src.infrastructure.config import settings
 from pydantic import BaseModel
 
