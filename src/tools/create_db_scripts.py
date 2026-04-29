@@ -20,7 +20,7 @@ CREATE TABLE agents (
     name              VARCHAR(255)  NOT NULL,
     owner             VARCHAR(64)   NOT NULL,
     api_key           VARCHAR(255)  NOT NULL UNIQUE,
-    tags              TEXT,                        -- comma-separated values
+    tags              JSONB         NOT NULL DEFAULT '[]',
     created_at        TIMESTAMP     NOT NULL,
     updated_at        TIMESTAMP     NOT NULL,
     active_since      TIMESTAMP,
@@ -30,13 +30,13 @@ CREATE TABLE agents (
 
 -- -------------------------------------------------------------
 -- agent_contexts
--- Stores one row per version. Current version = MAX(version).
+-- One row per version. Current version = MAX(version).
 -- -------------------------------------------------------------
 CREATE TABLE agent_contexts (
     id                  SERIAL        PRIMARY KEY,
     agent_id            VARCHAR(64)   NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
     version             INTEGER       NOT NULL DEFAULT 1,
-    tone                VARCHAR(64),
+    tone                VARCHAR(64)   CHECK (tone IN ('formal', 'informal', 'neutro')),
     language            VARCHAR(16),
     segment             VARCHAR(128),
     persona             VARCHAR(128),
@@ -45,9 +45,25 @@ CREATE TABLE agent_contexts (
     restrictions        JSONB,        -- { topics: [], files: [] }
     knowledge_base      JSONB,        -- { urls: [], files: [] }
     escalation_trigger  JSONB,        -- { operator, conditions: [] }
+    changes             JSONB,        -- array of field names changed vs previous version
     updated_at          TIMESTAMP     NOT NULL,
 
     UNIQUE (agent_id, version)
+);
+
+
+-- -------------------------------------------------------------
+-- user_contexts
+-- User profiles tracked per agent. Created on first interaction.
+-- -------------------------------------------------------------
+CREATE TABLE user_contexts (
+    user_id      VARCHAR(64)   PRIMARY KEY,
+    agent_id     VARCHAR(64)   NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
+    created_at   TIMESTAMP     NOT NULL,
+    updated_at   TIMESTAMP     NOT NULL,
+    segment      VARCHAR(128),
+    language     VARCHAR(16),
+    form_answers JSONB
 );
 
 
@@ -57,9 +73,13 @@ CREATE TABLE agent_contexts (
 CREATE TABLE sessions (
     session_id      VARCHAR(64)   PRIMARY KEY,
     agent_id        VARCHAR(64)   NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE,
+    user_id         VARCHAR(64)   REFERENCES user_contexts(user_id) ON DELETE SET NULL,
+    model           VARCHAR(64)   NOT NULL,
     started_at      TIMESTAMP     NOT NULL,
     ended_at        TIMESTAMP,
     total_messages  INTEGER       NOT NULL DEFAULT 0,
+    input_tokens    INTEGER       NOT NULL DEFAULT 0,
+    output_tokens   INTEGER       NOT NULL DEFAULT 0,
     total_tokens    INTEGER       NOT NULL DEFAULT 0,
     resolved        BOOLEAN       NOT NULL DEFAULT FALSE,
     escalated       BOOLEAN       NOT NULL DEFAULT FALSE
@@ -85,15 +105,20 @@ CREATE TABLE messages (
 -- -------------------------------------------------------------
 -- scores
 -- Local NLP scores generated during POST /chat — no token cost.
+-- One row per message (UNIQUE on message_id).
 -- -------------------------------------------------------------
 CREATE TABLE scores (
     id               SERIAL        PRIMARY KEY,
     session_id       VARCHAR(64)   NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
     message_id       VARCHAR(64)   NOT NULL REFERENCES messages(message_id) ON DELETE CASCADE,
     sentiment_score  FLOAT,
+    sentiment_label  VARCHAR(16)   CHECK (sentiment_label IN ('positive', 'neutral', 'negative')),
     topics           JSONB,        -- array of detected topic strings
+    main_topic       VARCHAR(255),
     intent           VARCHAR(128),
-    created_at       TIMESTAMP     NOT NULL
+    created_at       TIMESTAMP     NOT NULL,
+
+    UNIQUE (message_id)
 );
 
 
@@ -114,12 +139,15 @@ CREATE TABLE insights (
 -- -------------------------------------------------------------
 -- Indexes
 -- -------------------------------------------------------------
-CREATE INDEX idx_sessions_agent_id       ON sessions(agent_id);
-CREATE INDEX idx_messages_session_id     ON messages(session_id);
-CREATE INDEX idx_scores_session_id       ON scores(session_id);
-CREATE INDEX idx_scores_message_id       ON scores(message_id);
-CREATE INDEX idx_insights_session_id     ON insights(session_id);
-CREATE INDEX idx_agent_contexts_agent_id ON agent_contexts(agent_id);
+CREATE INDEX idx_agents_api_key            ON agents(api_key);
+CREATE INDEX idx_agent_contexts_agent_id   ON agent_contexts(agent_id);
+CREATE INDEX idx_user_contexts_agent_id    ON user_contexts(agent_id);
+CREATE INDEX idx_sessions_agent_id         ON sessions(agent_id);
+CREATE INDEX idx_sessions_user_id          ON sessions(user_id);
+CREATE INDEX idx_messages_session_id       ON messages(session_id);
+CREATE INDEX idx_scores_session_id         ON scores(session_id);
+CREATE INDEX idx_scores_message_id         ON scores(message_id);
+CREATE INDEX idx_insights_session_id       ON insights(session_id);
 """
     with open("scripts/schema.sql", "w") as f:
         f.write(sql_script)
@@ -157,14 +185,15 @@ model Agent {
   name           String
   owner          String
   apiKey         String    @unique @map("api_key")
-  tags           String?   // comma-separated values
+  tags           Json      @default("[]")
   createdAt      DateTime  @map("created_at")
   updatedAt      DateTime  @map("updated_at")
   activeSince    DateTime? @map("active_since")
   lastActivityAt DateTime? @map("last_activity_at")
 
-  contexts AgentContext[]
-  sessions Session[]
+  contexts     AgentContext[]
+  sessions     Session[]
+  userContexts UserContext[]
 
   @@map("agents")
 }
@@ -185,8 +214,9 @@ model AgentContext {
   behavior          String?
   fallbackMessage   String?  @map("fallback_message")
   restrictions      Json?    // { topics: [], files: [] }
-  knowledgeBase     Json?    @map("knowledge_base")    // { urls: [], files: [] }
+  knowledgeBase     Json?    @map("knowledge_base")     // { urls: [], files: [] }
   escalationTrigger Json?    @map("escalation_trigger") // { operator, conditions: [] }
+  changes           Json?    // array of field names changed vs previous version
   updatedAt         DateTime @map("updated_at")
 
   agent Agent @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
@@ -197,22 +227,47 @@ model AgentContext {
 
 
 // -------------------------------------------------------------
+// UserContext
+// User profiles tracked per agent. Created on first interaction.
+// -------------------------------------------------------------
+model UserContext {
+  userId      String   @id @map("user_id")
+  agentId     String   @map("agent_id")
+  createdAt   DateTime @map("created_at")
+  updatedAt   DateTime @map("updated_at")
+  segment     String?
+  language    String?
+  formAnswers Json?    @map("form_answers")
+
+  agent    Agent     @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
+  sessions Session[]
+
+  @@map("user_contexts")
+}
+
+
+// -------------------------------------------------------------
 // Session
 // -------------------------------------------------------------
 model Session {
   sessionId     String    @id @map("session_id")
   agentId       String    @map("agent_id")
+  userId        String?   @map("user_id")
+  model         String
   startedAt     DateTime  @map("started_at")
   endedAt       DateTime? @map("ended_at")
   totalMessages Int       @default(0) @map("total_messages")
+  inputTokens   Int       @default(0) @map("input_tokens")
+  outputTokens  Int       @default(0) @map("output_tokens")
   totalTokens   Int       @default(0) @map("total_tokens")
   resolved      Boolean   @default(false)
   escalated     Boolean   @default(false)
 
-  agent    Agent     @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
-  messages Message[]
-  scores   Score[]
-  insights Insight[]
+  agent       Agent        @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
+  userContext UserContext?  @relation(fields: [userId], references: [userId], onDelete: SetNull)
+  messages    Message[]
+  scores      Score[]
+  insights    Insight[]
 
   @@map("sessions")
 }
@@ -254,13 +309,16 @@ enum Status {
 // -------------------------------------------------------------
 // Score
 // Local NLP scores generated during POST /chat — no token cost.
+// One row per message.
 // -------------------------------------------------------------
 model Score {
   id             Int      @id @default(autoincrement())
   sessionId      String   @map("session_id")
   messageId      String   @unique @map("message_id")
   sentimentScore Float?   @map("sentiment_score")
+  sentimentLabel String?  @map("sentiment_label")
   topics         Json?    // array of detected topic strings
+  mainTopic      String?  @map("main_topic")
   intent         String?
   createdAt      DateTime @map("created_at")
 

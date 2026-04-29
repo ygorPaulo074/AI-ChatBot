@@ -691,37 +691,40 @@ AI-ChatBot/
 ├── .initialized
 ├── README.md
 ├── data/                          # gerado em runtime — não versionado
-│   └── README.md                  # instrução: não versionar este diretório
+│   └── README.md
 └── src/
-    ├── core/
-    │   ├── config.py
-    │   └── context_builder.py
-    ├── agents/
-    │   ├── ai_client.py
-    │   ├── ai_service.py
-    │   ├── skills/
-    │   │   └── prompt.xml
-    │   └── logs/
-    │       ├── error.log
-    │       └── access.log
-    ├── routes/
-    │   ├── base_schemas.py
+    ├── infrastructure/            # configurações globais e infraestrutura transversal
+    │   └── config.py              # variáveis de ambiente, settings, rate limiter
+    ├── services/                  # lógica de negócio — o que o sistema faz
+    │   ├── agent_service.py       # ciclo de vida do agente: create, get, delete
+    │   ├── context_service.py     # versionamento de contexto e histórico de changes
+    │   ├── context_builder.py     # transforma AgentContext em context.xml (system prompt)
+    │   ├── ai_service.py          # orquestra chamadas à IA e avalia escalonamento
+    │   └── quality_analyzer.py   # análise local NLP: sentiment, tópicos, intent
+    ├── clients/                   # conexões com serviços externos
+    │   ├── ai_client.py           # conexão LiteLLM: modelo, API key, timeout
+    │   └── skills/
+    │       ├── CONTEXT.md         # gerado pelo context_builder.py
+    │       └── PROMPT.md          # template de prompt da IA
+    ├── routes/                    # camada HTTP — schemas e handlers
+    │   ├── base_schemas.py        # schemas compartilhados: AgentContext e sub-modelos
     │   ├── agent/
     │   │   ├── __init__.py
-    │   │   ├── index.py
-    │   │   └── schemas.py
+    │   │   ├── index.py           # handlers: POST/GET/PUT/DELETE /agent
+    │   │   └── schemas.py         # request/response schemas do agente
     │   ├── chat/
     │   │   ├── __init__.py
-    │   │   ├── index.py
-    │   │   └── schemas.py
+    │   │   ├── index.py           # handler: POST /chat
+    │   │   └── schemas.py         # request/response schemas do chat
     │   └── data/
     │       ├── __init__.py
-    │       ├── index.py
-    │       └── schemas.py
-    ├── tools/
-    │   ├── setup.py
-    │   ├── clear_data.py
-    │   └── run_tests.py
+    │       ├── index.py           # handlers: GET /data/chat, /data/context, /data/analytics
+    │       └── schemas.py         # schemas de insights, analytics e contexto de usuário
+    ├── tools/                     # scripts CLI — executados fora do ciclo de request
+    │   ├── setup.py               # configuração inicial guiada (roda uma vez)
+    │   ├── clear_data.py          # limpa dados gerados em desenvolvimento
+    │   ├── run_tests.py           # executa testes e aciona clear_data ao final
+    │   └── create_db_scripts.py   # gera schema.sql e schema.prisma
     └── tests/
         ├── test_agent.py
         ├── test_chat.py

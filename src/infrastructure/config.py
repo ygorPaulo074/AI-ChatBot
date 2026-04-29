@@ -1,6 +1,12 @@
+"""
+Configurações globais da aplicação.
+Carrega variáveis de ambiente via Pydantic BaseSettings (pydantic-settings),
+instancia o rate limiter (slowapi) e expõe o objeto `settings` como ponto
+único de acesso às variáveis de ambiente em todo o projeto.
+"""
 import dotenv
 import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

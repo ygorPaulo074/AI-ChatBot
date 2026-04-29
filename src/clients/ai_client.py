@@ -1,11 +1,18 @@
+"""
+Conexão e configuração com o modelo de IA via LiteLLM.
+Abstrai o provedor (Anthropic, OpenAI, Gemini, DeepSeek, Groq), gerencia
+API key, modelo e timeout. Expõe interface única de completion para o ai_service.
+"""
 from dataclasses import dataclass
 from litellm import completion
-from src.core.config import settings
+from src.infrastructure.config import settings
+
 
 @dataclass
 class AIResponse:
     content: str
     usage: dict
+
 
 class AIClient:
 
