@@ -2,14 +2,17 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from ..base_schemas import AgentContext
 
+
 class AgentCreateRequest(BaseModel):
     name: str = Field(..., example="Meu Agente")
     context: AgentContext
+
 
 class AgentCreateResponse(BaseModel):
     agent_id: str
     api_key: str
     created_at: str
+
 
 class AgentGetResponse(BaseModel):
     agent_id: str
@@ -21,20 +24,26 @@ class AgentGetResponse(BaseModel):
     active_since: Optional[str] = None
     last_activity_at: Optional[str] = None
 
-class AgentContextResponse(BaseModel):
+
+
+class AgentContextResponse(AgentContext):
     agent_id: str
-    context: AgentContext
     version: int
+
 
 class AgentContextHistoryItem(BaseModel):
     version: int
     updated_at: str
     changes: List[str]
 
+
 class AgentContextHistoryResponse(BaseModel):
-    history: List[AgentContextHistoryItem]
+    agent_id: str
+    versions: List[AgentContextHistoryItem]
+
 
 class AgentMetricsResponse(BaseModel):
+    agent_id: str
     total_sessions: int
     total_messages: int
     avg_response_time_ms: float
@@ -43,13 +52,17 @@ class AgentMetricsResponse(BaseModel):
     active_since: Optional[str] = None
     last_activity_at: Optional[str] = None
 
-class AgentUpdateContextRequest(BaseModel):
-    context: AgentContext
+
+# Todos os campos opcionais — PATCH semântico
+class AgentUpdateContextRequest(AgentContext):
+    pass
+
 
 class AgentUpdateContextResponse(BaseModel):
     agent_id: str
     version: int
     updated_at: str
+
 
 class AgentDeleteResponse(BaseModel):
     success: bool

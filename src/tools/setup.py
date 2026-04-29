@@ -93,6 +93,13 @@ def run_setup():
             break
         print("\033[1m" + "Error:" + "\033[0m" + " Invalid selection. Enter a valid number.")
 
+    print(f"\n\033[1m" + "STEP 1.5: SET A TIMEOUT" + "\033[0m")
+    while True:
+        timeout = input("Enter the timeout value in seconds [default: 30]: ") or "30"
+        if timeout.isdigit():
+            break
+        print("\033[1m" + "Error:" + "\033[0m" + " Enter a valid number.")
+
     print(f"\n\033[1m" + "STEP 2: AUTHENTICATION" + "\033[0m")
     api_key = input(f"Enter your API key for {model}: ")
     while not validate_api_key(api_key, model):
@@ -203,6 +210,7 @@ def run_setup():
     print(f"\n\033[1m" + "FINALIZING CONFIGURATION..." + "\033[0m")
     with open(".env", "w") as f:
         f.write(f"IA_API_KEY={api_key}\n")
+        f.write(f"AI_TIMEOUT={timeout}\n")
         f.write(f"MODEL={model}\n")
         f.write(f"RUN_MODE={run_mode}\n")
         f.write(f"PORT={port}\n")
