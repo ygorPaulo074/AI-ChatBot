@@ -17,19 +17,30 @@
   - [DELETE /agent](#delete-agent)
 - [Chat](#chat)
   - [POST /chat](#post-chat)
+  - [Ciclo de vida da sessão](#ciclo-de-vida-da-sessao)
+    - [POST /chat/{session\_id}/end](#post-chatsession_idend)
+    - [POST /chat/{session\_id}/resolve](#post-chatsession_idresolve)
+    - [POST /chat/{session\_id}/escalate](#post-chatsession_idescalate)
 - [Data](#data)
   - [GET /data/chat](#get-datachat)
   - [GET /data/chat/{session\_id}](#get-datachatsession_id)
-  - [GET /data/chat/{session\_id}/insights](#get-datachatsession_idinsights)
-  - [GET /data/chat/{session\_id}/insights/sentiment](#get-datachatsession_idinsightssentiment)
-  - [GET /data/chat/{session\_id}/insights/topics](#get-datachatsession_idinsightstopics)
-  - [GET /data/chat/{session\_id}/insights/metrics](#get-datachatsession_idinsightsmetrics)
-  - [GET /data/chat/{session\_id}/insights/suggestions](#get-datachatsession_idinsightssuggestions)
   - [DELETE /data/chat/{session\_id}](#delete-datachatsession_id)
+  - [Insights](#insights)
+    - [GET /data/chat/{session\_id}/insights](#get-datachatsession_idinsights)
+    - [GET /data/chat/{session\_id}/insights/sentiment](#get-datachatsession_idinsightssentiment)
+    - [GET /data/chat/{session\_id}/insights/topics](#get-datachatsession_idinsightstopics)
+    - [GET /data/chat/{session\_id}/insights/metrics](#get-datachatsession_idinsightsmetrics)
+    - [GET /data/chat/{session\_id}/insights/suggestions](#get-datachatsession_idinsightssuggestions)
   - [GET /data/context](#get-datacontext)
   - [GET /data/context/{user\_id}](#get-datacontextuser_id)
   - [DELETE /data/context/{user\_id}](#delete-datacontextuser_id)
-  - [GET /data/analytics](#get-dataanalytics)
+  - [Analytics](#analytics)
+    - [GET /data/analytics](#get-dataanalytics)
+    - [GET /data/analytics/summary](#get-dataanalyticssummary)
+    - [GET /data/analytics/patterns](#get-dataanalyticspatterns)
+    - [GET /data/analytics/sentiment](#get-dataanalyticssentiment)
+    - [GET /data/analytics/users](#get-dataanalyticsusers)
+    - [GET /data/analytics/timeline](#get-dataanalyticstimeline)
 - [Estrutura de Arquivos](#estrutura-de-arquivos)
 - [Pasta data/](#pasta-data)
 - [Contexto dos Agentes](#contexto-dos-agentes)
@@ -405,6 +416,52 @@ Envia uma mensagem para a IA e retorna a resposta processada. O contexto do agen
 - `failed` — erro no processamento
 - `escalated` — mensagem que trigou escalonamento humano
 
+<a id="ciclo-de-vida-da-sessao"></a>
+### Ciclo de vida da sessão
+
+Endpoints para transição de estado de uma sessão. Devem ser chamados pelo consumidor no momento certo do fluxo — a API não encerra nem resolve sessões automaticamente.
+
+<a id="post-chatsession_idend"></a>
+#### `POST /chat/{session_id}/end`
+
+Encerra a sessão, gravando o `ended_at`. Após este ponto, a sessão não aceita novas mensagens.
+
+**Response:**
+```json
+{
+  "session_id": "abc123",
+  "ended_at": "2026-04-25T18:12:00Z"
+}
+```
+
+<a id="post-chatsession_idresolve"></a>
+#### `POST /chat/{session_id}/resolve`
+
+Marca a sessão como resolvida pela IA, sem escalonamento humano.
+
+**Response:**
+```json
+{
+  "session_id": "abc123",
+  "resolved": true,
+  "updated_at": "2026-04-25T18:10:00Z"
+}
+```
+
+<a id="post-chatsession_idescalate"></a>
+#### `POST /chat/{session_id}/escalate`
+
+Marca a sessão como escalonada para atendimento humano. A última mensagem do assistente recebe `status: "escalated"`.
+
+**Response:**
+```json
+{
+  "session_id": "abc123",
+  "escalated": true,
+  "updated_at": "2026-04-25T18:11:30Z"
+}
+```
+
 <a id="data"></a>
 ## Data
 
@@ -476,8 +533,18 @@ Retorna o histórico completo de uma conversa específica.
 }
 ```
 
+<a id="delete-datachatsession_id"></a>
+### `DELETE /data/chat/{session_id}`
+
+Remove uma sessão de conversa específica e seus dados em `data/agents/{agent_id}/chats/{session_id}/`.
+
+<a id="insights"></a>
+### Insights
+
+Análise por sessão. As rotas locais não consomem tokens — são alimentadas pelos scores gerados durante o `POST /chat`.
+
 <a id="get-datachatsession_idinsights"></a>
-### `GET /data/chat/{session_id}/insights`
+#### `GET /data/chat/{session_id}/insights`
 
 Retorna o dataframe completo de insights de uma sessão. Consolida três fontes de dados:
 
@@ -535,7 +602,7 @@ Por ser um payload denso, recomenda-se usar as rotas abstraídas abaixo quando a
 ```
 
 <a id="get-datachatsession_idinsightssentiment"></a>
-### `GET /data/chat/{session_id}/insights/sentiment`
+#### `GET /data/chat/{session_id}/insights/sentiment`
 
 Retorna apenas os dados de sentimento da sessão — gerados localmente, sem consumo de tokens.
 
@@ -556,7 +623,7 @@ Retorna apenas os dados de sentimento da sessão — gerados localmente, sem con
 ```
 
 <a id="get-datachatsession_idinsightstopics"></a>
-### `GET /data/chat/{session_id}/insights/topics`
+#### `GET /data/chat/{session_id}/insights/topics`
 
 Retorna os tópicos detectados na sessão — gerados localmente via `spaCy`, sem consumo de tokens.
 
@@ -573,7 +640,7 @@ Retorna os tópicos detectados na sessão — gerados localmente via `spaCy`, se
 ```
 
 <a id="get-datachatsession_idinsightsmetrics"></a>
-### `GET /data/chat/{session_id}/insights/metrics`
+#### `GET /data/chat/{session_id}/insights/metrics`
 
 Retorna as métricas quantitativas da sessão — calculadas localmente, sem consumo de tokens.
 
@@ -593,7 +660,7 @@ Retorna as métricas quantitativas da sessão — calculadas localmente, sem con
 ```
 
 <a id="get-datachatsession_idinsightssuggestions"></a>
-### `GET /data/chat/{session_id}/insights/suggestions`
+#### `GET /data/chat/{session_id}/insights/suggestions`
 
 Retorna as ações sugeridas e análise geradas pela IA. **Esta é a única sub-rota de insights que consome tokens.**
 
@@ -615,11 +682,6 @@ Retorna as ações sugeridas e análise geradas pela IA. **Esta é a única sub-
   }
 }
 ```
-
-<a id="delete-datachatsession_id"></a>
-### `DELETE /data/chat/{session_id}`
-
-Remove uma sessão de conversa específica e seus dados em `data/agents/{agent_id}/chats/{session_id}/`.
 
 <a id="get-datacontext"></a>
 ### `GET /data/context`
@@ -671,10 +733,15 @@ Retorna o contexto de um usuário específico.
 
 Remove o contexto de um usuário específico.
 
-<a id="get-dataanalytics"></a>
-### `GET /data/analytics`
+<a id="analytics"></a>
+### Analytics
 
-Retorna uma visão analítica completa e agregada de todas as conversas do agente autenticado. Alimentada pelos scores locais gerados durante o `POST /chat`. Projetada para consumo por dashboards, sistemas de RAG e ferramentas de análise de negócio.
+Visão agregada de todas as conversas do agente autenticado. Alimentada pelos scores locais gerados durante o `POST /chat`. Projetada para consumo por dashboards, sistemas de RAG e ferramentas de análise de negócio. Use as sub-rotas quando apenas um subconjunto dos dados for necessário.
+
+<a id="get-dataanalytics"></a>
+#### `GET /data/analytics`
+
+Retorna o payload analítico completo.
 
 **Response:**
 ```json
@@ -731,6 +798,126 @@ Retorna uma visão analítica completa e agregada de todas as conversas do agent
       { "segment": "saas", "total_users": 350, "resolution_rate": 0.83 }
     ]
   },
+  "timeline": [
+    {
+      "date": "2026-04-25",
+      "total_chats": 42,
+      "resolved": 38,
+      "escalated": 4,
+      "new_users": 18,
+      "total_tokens": 34272,
+      "avg_response_time_ms": 320,
+      "avg_sentiment_score": -0.15
+    }
+  ]
+}
+```
+
+<a id="get-dataanalyticssummary"></a>
+#### `GET /data/analytics/summary`
+
+Retorna apenas o bloco `summary` com os totais numéricos agregados.
+
+**Response:**
+```json
+{
+  "generated_at": "2026-04-25T18:00:00Z",
+  "period": { "from": "2026-01-01T00:00:00Z", "to": "2026-04-25T23:59:59Z" },
+  "summary": {
+    "total_chats": 1200,
+    "total_messages": 9600,
+    "total_users": 870,
+    "avg_messages_per_chat": 8,
+    "avg_chat_duration_seconds": 187,
+    "avg_response_time_ms": 340,
+    "resolution_rate": 0.87,
+    "escalation_rate": 0.13,
+    "total_tokens_used": 980000,
+    "avg_tokens_per_chat": 816
+  }
+}
+```
+
+<a id="get-dataanalyticspatterns"></a>
+#### `GET /data/analytics/patterns`
+
+Retorna padrões de tópicos, horários de pico e médias de resolução/escalonamento.
+
+**Response:**
+```json
+{
+  "generated_at": "2026-04-25T18:00:00Z",
+  "period": { "from": "2026-01-01T00:00:00Z", "to": "2026-04-25T23:59:59Z" },
+  "patterns": {
+    "most_common_topics": [
+      { "topic": "prazo de entrega", "count": 430, "resolution_rate": 0.91 }
+    ],
+    "most_common_unresolved_topics": [
+      { "topic": "cancelamento", "count": 55 }
+    ],
+    "peak_hours": [
+      { "hour": "14:00", "avg_chats": 92 }
+    ],
+    "peak_days": ["friday", "monday"],
+    "avg_messages_to_resolution": 6,
+    "avg_messages_to_escalation": 12
+  }
+}
+```
+
+<a id="get-dataanalyticssentiment"></a>
+#### `GET /data/analytics/sentiment`
+
+Retorna o score médio de sentimento e a distribuição positivo/neutro/negativo.
+
+**Response:**
+```json
+{
+  "generated_at": "2026-04-25T18:00:00Z",
+  "period": { "from": "2026-01-01T00:00:00Z", "to": "2026-04-25T23:59:59Z" },
+  "sentiment": {
+    "avg_score": -0.12,
+    "distribution": {
+      "positive": 0.45,
+      "neutral": 0.32,
+      "negative": 0.23
+    }
+  }
+}
+```
+
+<a id="get-dataanalyticsusers"></a>
+#### `GET /data/analytics/users`
+
+Retorna segmentação de usuários, taxa de novos vs. recorrentes e resolução por segmento.
+
+**Response:**
+```json
+{
+  "generated_at": "2026-04-25T18:00:00Z",
+  "period": { "from": "2026-01-01T00:00:00Z", "to": "2026-04-25T23:59:59Z" },
+  "users": {
+    "new_users": 430,
+    "returning_users": 440,
+    "avg_chats_per_user": 1.38,
+    "segments": [
+      { "segment": "ecommerce", "total_users": 520, "resolution_rate": 0.90 },
+      { "segment": "saas", "total_users": 350, "resolution_rate": 0.83 }
+    ]
+  }
+}
+```
+
+<a id="get-dataanalyticstimeline"></a>
+#### `GET /data/analytics/timeline`
+
+Retorna a evolução diária das métricas no período. Ideal para geração de gráficos.
+
+**Response:**
+```json
+{
+  "generated_at": "2026-04-25T18:00:00Z",
+  "period": { "from": "2026-01-01T00:00:00Z", "to": "2026-04-25T23:59:59Z" },
   "timeline": [
     {
       "date": "2026-04-25",

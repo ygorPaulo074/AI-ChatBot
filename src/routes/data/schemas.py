@@ -214,3 +214,35 @@ class AnalyticsResponse(BaseModel):
     sentiment: AnalyticsSentiment
     users: AnalyticsUsers
     timeline: List[TimelineEntry]
+
+
+# ── Analytics sub-routes ──────────────────────────────────────
+
+class AnalyticsSummaryResponse(BaseModel):
+    generated_at: str
+    period: AnalyticsPeriod
+    summary: AnalyticsSummary
+
+
+class AnalyticsPatternsResponse(BaseModel):
+    generated_at: str
+    period: AnalyticsPeriod
+    patterns: AnalyticsPatterns
+
+
+class AnalyticsSentimentResponse(BaseModel):
+    generated_at: str
+    period: AnalyticsPeriod
+    sentiment: AnalyticsSentiment
+
+
+class AnalyticsUsersResponse(BaseModel):
+    generated_at: str
+    period: AnalyticsPeriod
+    users: AnalyticsUsers
+
+
+class AnalyticsTimelineResponse(BaseModel):
+    generated_at: str
+    period: AnalyticsPeriod
+    timeline: List[TimelineEntry]

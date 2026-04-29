@@ -40,3 +40,22 @@ class ConversationEntry(BaseModel):
 class ChatResponse(BaseModel):
     session: SessionInfo
     conversation: List[ConversationEntry]
+
+
+# ── Lifecycle ────────────────────────────────────────────────
+
+class SessionEndResponse(BaseModel):
+    session_id: str
+    ended_at: str
+
+
+class SessionResolveResponse(BaseModel):
+    session_id: str
+    resolved: bool
+    updated_at: str
+
+
+class SessionEscalateResponse(BaseModel):
+    session_id: str
+    escalated: bool
+    updated_at: str
