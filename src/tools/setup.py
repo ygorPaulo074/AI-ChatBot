@@ -44,10 +44,14 @@ def validate_api_key(api_key, model):
         return False
 
 def validate_database_url(database_url):
-    pattern = r"^(postgresql|mysql|sqlite)://.*"
+    pattern = r"^(postgresql|postgres|mysql|sqlite)(\+\w+)?://.*"
     if re.match(pattern, database_url):
         return True
-    print("Invalid database URL format. Expected: driver://user:password@host:port/database")
+    print("Invalid database URL format.")
+    print("Examples:")
+    print("  postgresql://user:password@localhost:5432/mydb")
+    print("  mysql://user:password@localhost:3306/mydb")
+    print("  sqlite:///./mydb.db")
     return False
 
 def get_allowed_origins() -> str:
