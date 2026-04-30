@@ -4,3 +4,4 @@ from invoke import task
 @task
 def setup(c):
     c.run("python src/tools/setup.py", pty=True)
+

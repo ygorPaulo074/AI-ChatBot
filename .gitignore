@@ -23,6 +23,7 @@ docker-compose.yml
 .pytest_cache/
 htmlcov/
 .coverage
+test_context.py
 
 # IDEs
 .vscode/

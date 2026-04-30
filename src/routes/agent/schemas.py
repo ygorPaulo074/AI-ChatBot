@@ -52,11 +52,6 @@ class AgentMetricsResponse(BaseModel):
     last_activity_at: Optional[str] = None
 
 
-# Todos os campos opcionais — PATCH semântico
-class AgentUpdateContextRequest(AgentContext):
-    pass
-
-
 class AgentUpdateContextResponse(BaseModel):
     agent_id: str
     version: int
