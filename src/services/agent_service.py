@@ -1,63 +1,42 @@
 """
-Gerencia o ciclo de vida dos agentes: criação, leitura, atualização de metadados e deleção.
-Responsável por gerar o agent_id e a API Key, persistir os dados do agente no storage
-configurado (Local, Database ou Webhook) e atualizar timestamps de atividade.
+Gerencia o ciclo de vida dos agentes.
+Depende de PersistenceDriver (via factory) para storage,
+CacheClient para invalidação de contexto e ContextService para versionamento.
 """
-from src.clients.ai_client import AIClient
-from src.infrastructure.config import settings
+from src.core.persistence.factory import get_driver
+from src.core.persistence.base import PersistenceDriver
+from src.core.cache.client import CacheClient
+from src.core.security import generate_api_key, hash_api_key
+from src.core.schemas import AgentRecord, SessionRecord
+from src.routes.base_schemas import AgentContext
+
 
 class AgentService:
 
     def __init__(self):
-        self.ai_client = AIClient()
+        self.driver: PersistenceDriver = get_driver()
+        self.cache = CacheClient()
 
-    def create_agent(self, name: str, description: str) -> dict:
-        #cria nome
-        #cria id
-        #chama context builder
-        #chama api key generator
-        #define fallback message
-        #carrega knowledge base
-        #atribue tags
-        #carrega escalation triggers
-        #persiste no storage
-        #retorna dados do agente criado
-        #return agent_data
+    def create_agent(self, name: str, owner: str, context: AgentContext) -> dict:
+        # gera agent_id único e API Key bruta
+        # cria AgentRecord com api_key_hash (nunca a chave em claro)
+        # persiste AgentRecord via driver.save_agent
+        # delega criação do AgentContextRecord (versão 1) ao ContextService
+        # retorna agent_id e api_key bruta — única vez que é exposta
         pass
 
-    def get_agent(self, agent_id: str) -> dict:
-        #busca agente no storage pelo agent_id
-        #retorna dados do agente
-        #return agent_data
+    def get_agent(self, agent_id: str) -> AgentRecord | None:
+        # carrega e retorna AgentRecord via driver.load_agent
         pass
 
-    def update_agent(self, agent_id: str, updates: dict) -> dict:
-        #busca agente no storage pelo agent_id
-        #recebe campos a atualizar (name, description, tags, etc)
-        #atualiza campos permitidos (name, description, tags, etc)
-        #atualiza timestamp de modificação
-        #fixa quem atualizou (sistema, usuário, etc)
-        #atualiza contexto se necessário (ex: mudança de tags pode alterar o contexto)
-        #atualiza knowledge base se necessário (ex: mudança de descrição pode alterar a base de conhecimento)
-        #atualiza triggers de escalonamento se necessário (ex: mudança de descrição pode alterar os gatilhos)
-        #atualiza fallback message se necessário (ex: mudança de descrição pode alterar a mensagem de fallback)
-        #persiste mudanças no storage
-        #retorna dados do agente atualizado
-        #return updated_agent_data
+    def get_metrics(self, agent_id: str) -> dict:
+        # lista todas as SessionRecord do agente via driver.list_sessions
+        # agrega: total_sessions, total_messages, total_tokens,
+        #         avg_response_time_ms, resolution_rate, escalation_rate
+        # retorna dicionário com as métricas calculadas
         pass
 
-    def delete_agent(self, agent_id: str) -> bool:
-        #busca agente no storage pelo agent_id
-        #deleta agente do storage
-        #retorna sucesso ou falha da operação
-        #return success
+    def delete_agent(self, agent_id: str) -> None:
+        # remove AgentRecord e todos os dados associados via driver.delete_agent
+        # invalida contexto em cache via cache.invalidate_context
         pass
-
-    def list_agents(self) -> list[dict]:
-        #busca todos os agentes no storage
-        #retorna lista de agentes com dados básicos (agent_id, name, description, tags, etc)
-        #return agents_list
-        pass
-
-
-    

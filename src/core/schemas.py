@@ -39,17 +39,28 @@ class SessionMeta(BaseModel):
     escalated: bool = False
 
 
-# ── Cache: NLP scores (per message) ──────────────────────────────────────────
+# ── Cache: NLP scores ─────────────────────────────────────────────────────────
 
-class ScoreData(BaseModel):
-    session_id: str
+class MessageScore(BaseModel):
     message_id: str
+    role: Literal["user", "assistant"]
+    text_length: Optional[int] = None
     sentiment_score: Optional[float] = None
     sentiment_label: Optional[Literal["positive", "neutral", "negative"]] = None
     topics: Optional[List[str]] = None
+    intent: Optional[str] = None
+
+
+class ScoreData(BaseModel):
+    session_id: str
+    messages: List[MessageScore] = []
+    avg_sentiment_score: Optional[float] = None
+    sentiment_label: Optional[Literal["positive", "neutral", "negative"]] = None
+    all_topics: List[str] = []
     main_topic: Optional[str] = None
     intent: Optional[str] = None
-    created_at: str
+    avg_user_message_length: Optional[float] = None
+    updated_at: str
 
 
 # ── Persistence: agent ────────────────────────────────────────────────────────

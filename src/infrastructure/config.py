@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     STORAGE_TYPE: str = "local"
     DATABASE_URL: str = ""
     WEBHOOK_URL: str = ""
+    ANALYZER_LANGUAGES: list[str] = ["en"]
 
     class Config:
         env_file = ".env"
