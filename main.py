@@ -19,10 +19,12 @@ async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+_origins = ["*"] if settings.RUN_MODE == "development" else settings.ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
