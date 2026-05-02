@@ -9,8 +9,8 @@ from src.core.persistence.factory import get_driver
 from src.core.persistence.base import PersistenceDriver
 from src.core.cache.client import CacheClient
 from src.core.context_builder import build_context_xml
-from src.core.schemas import AgentContextRecord
-from src.routes.base_schemas import AgentContext, AgentContextBase
+from src.core.schemas import AgentContextBase, AgentContextRecord
+from src.routes.base_schemas import AgentContext
 
 
 class ContextService:

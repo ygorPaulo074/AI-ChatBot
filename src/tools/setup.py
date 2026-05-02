@@ -1,3 +1,4 @@
+import json
 import litellm
 import redis as redis_lib
 import re
@@ -90,7 +91,7 @@ def get_allowed_origins() -> str:
         origins = [HttpUrl(o.strip()) for o in raw.split(",")]
         try:
             CORSConfig(allowed_origins=origins)
-            return ",".join(str(origin) for origin in origins)
+            return json.dumps([str(origin) for origin in origins])
         except ValidationError:
             print("Invalid URL detected. Please enter valid URLs (ex: https://your-website.com).")
 
@@ -310,7 +311,7 @@ def run_setup():
         f.write(f"REDIS_URL={redis_url}\n")
         f.write(f"SESSION_TTL={session_ttl}\n")
         f.write(f"ALLOWED_ORIGINS={allowed_origins}\n")
-        f.write(f"ANALYZER_LANGUAGES={','.join(analyzer_languages)}\n")
+        f.write(f"ANALYZER_LANGUAGES={json.dumps(analyzer_languages)}\n")
 
     raise_initialization_flag()
     print("\n\033[1m" + "Configuration completed successfully!" + "\033[0m" + " .env file generated.\n")

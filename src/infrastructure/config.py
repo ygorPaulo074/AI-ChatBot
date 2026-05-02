@@ -5,7 +5,7 @@ instancia o rate limiter (slowapi) e expõe o objeto `settings` como ponto
 único de acesso às variáveis de ambiente em todo o projeto.
 """
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -38,8 +38,7 @@ class Settings(BaseSettings):
     WEBHOOK_URL: str = ""
     ANALYZER_LANGUAGES: list[str] = ["en"]
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()

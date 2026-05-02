@@ -4,9 +4,49 @@ Usados por drivers, CacheClient e services — nunca expostos diretamente pela A
 Os schemas de rota (src/routes/*/schemas.py) são derivados destes ao montar respostas.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 from typing import Any, Dict, List, Literal, Optional
-from src.routes.base_schemas import AgentContextBase
+
+
+# ── Agent context base (compartilhado entre core e routes) ────────────────────
+
+class FileReference(BaseModel):
+    name: str
+    url: HttpUrl
+
+
+class RestrictionsConfig(BaseModel):
+    topics: List[str] = []
+    files: List[FileReference] = []
+
+
+class KnowledgeBaseConfig(BaseModel):
+    urls: List[HttpUrl] = []
+    files: List[FileReference] = []
+
+
+class EscalationCondition(BaseModel):
+    type: Literal["keyword", "sentiment", "message_count", "topic", "time_elapsed", "intent"]
+    value: Optional[str | int | float] = None
+    values: Optional[List[str]] = None
+    threshold: Optional[float] = None
+
+
+class EscalationTrigger(BaseModel):
+    operator: Literal["OR", "AND"]
+    conditions: List[EscalationCondition]
+
+
+class AgentContextBase(BaseModel):
+    tone: Optional[Literal["formal", "informal", "neutro"]] = None
+    language: Optional[str] = None
+    segment: Optional[str] = None
+    persona: Optional[str] = None
+    behavior: Optional[str] = None
+    fallback_message: Optional[str] = None
+    restrictions: Optional[RestrictionsConfig] = None
+    knowledge_base: Optional[KnowledgeBaseConfig] = None
+    escalation_trigger: Optional[EscalationTrigger] = None
 
 
 # ── Cache: session history ────────────────────────────────────────────────────
