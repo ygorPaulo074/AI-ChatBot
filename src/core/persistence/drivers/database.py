@@ -1,6 +1,6 @@
 """
 Driver de persistência via banco de dados relacional (PostgreSQL 14+).
-Requer schema gerado por create_db_scripts.py e DATABASE_URL no .env.
+Requer schema gerado por deployment_scripts.py (invoke setup) e DATABASE_URL no .env.
 Campos complexos (listas, modelos aninhados) são serializados como JSON.
 """
 
