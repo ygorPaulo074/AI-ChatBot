@@ -62,3 +62,29 @@ class AgentUpdateContextResponse(BaseModel):
 
 class AgentDeleteResponse(BaseModel):
     deleted_at: str
+
+
+class KnowledgeFileUploadResponse(BaseModel):
+    file_id: str
+    filename: str
+    file_type: str
+    record_count: int
+    uploaded_at: str
+
+
+class KnowledgeFileItem(BaseModel):
+    file_id: str
+    filename: str
+    file_type: str
+    record_count: int
+    uploaded_at: str
+    updated_at: str
+
+
+class KnowledgeFileListResponse(BaseModel):
+    files: List[KnowledgeFileItem]
+
+
+class KnowledgeFileDeleteResponse(BaseModel):
+    file_id: str
+    deleted: bool

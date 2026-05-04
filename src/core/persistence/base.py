@@ -19,6 +19,7 @@ from src.core.schemas import (
     SessionRecord,
     InsightRecord,
     ScoreData,
+    KnowledgeFileRecord,
 )
 
 
@@ -97,3 +98,17 @@ class PersistenceDriver(ABC):
 
     @abstractmethod
     def load_insight(self, agent_id: str, session_id: str) -> InsightRecord | None: ...
+
+    # ── Knowledge files ────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def save_knowledge_file(self, agent_id: str, record: KnowledgeFileRecord) -> None: ...
+
+    @abstractmethod
+    def load_knowledge_file(self, agent_id: str, file_id: str) -> KnowledgeFileRecord | None: ...
+
+    @abstractmethod
+    def list_knowledge_files(self, agent_id: str) -> list[KnowledgeFileRecord]: ...
+
+    @abstractmethod
+    def delete_knowledge_file(self, agent_id: str, file_id: str) -> None: ...

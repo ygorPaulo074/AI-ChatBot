@@ -15,6 +15,7 @@ from src.core.schemas import (
     SessionRecord,
     InsightRecord,
     ScoreData,
+    KnowledgeFileRecord,
 )
 from src.core.security import sanitize_pii
 
@@ -99,3 +100,19 @@ class WebhookDriver(PersistenceDriver):
 
     def load_insight(self, agent_id: str, session_id: str) -> InsightRecord | None:
         raise NotImplementedError("WebhookDriver não suporta leitura.")
+
+    # ── Knowledge files ────────────────────────────────────────────────────────
+
+    def save_knowledge_file(self, agent_id: str, record: KnowledgeFileRecord) -> None:
+        self._post({"type": "knowledge_file", "action": "save", "agent_id": agent_id,
+                    "data": record.model_dump(mode="json")})
+
+    def load_knowledge_file(self, agent_id: str, file_id: str) -> KnowledgeFileRecord | None:
+        raise NotImplementedError("WebhookDriver não suporta leitura.")
+
+    def list_knowledge_files(self, agent_id: str) -> list[KnowledgeFileRecord]:
+        raise NotImplementedError("WebhookDriver não suporta leitura.")
+
+    def delete_knowledge_file(self, agent_id: str, file_id: str) -> None:
+        self._post({"type": "knowledge_file", "action": "delete",
+                    "agent_id": agent_id, "file_id": file_id})

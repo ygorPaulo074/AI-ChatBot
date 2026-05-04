@@ -1,6 +1,7 @@
 # Core
 fastapi
 uvicorn
+python-multipart
 
 # IA
 litellm
@@ -33,6 +34,7 @@ presidio-anonymizer
 
 # Extração de texto de arquivos
 pdfplumber
+openpyxl
 
 # Banco de dados
 sqlalchemy

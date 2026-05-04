@@ -164,3 +164,15 @@ class InsightRecord(BaseModel):
     key_points: List[str] = []
     suggested_actions: List[str] = []
     summary: str
+
+
+# ── Persistence: knowledge base file ─────────────────────────────────────────
+
+class KnowledgeFileRecord(BaseModel):
+    file_id: str
+    agent_id: str
+    filename: str
+    file_type: Literal["csv", "json", "pdf", "excel"]
+    records: List[Dict[str, Any]] = []
+    uploaded_at: str
+    updated_at: str

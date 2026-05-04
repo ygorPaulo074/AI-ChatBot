@@ -158,6 +158,8 @@ Cria um novo agente.
 
 > A `api_key` é retornada apenas na criação. Armazene com segurança.
 
+> **Interface:** a criação de agente requer uma **página dedicada** no painel (não é um formulário inline na listagem). Essa página cobre: dados básicos, configuração completa do contexto, seleção e configuração da knowledge base e definição das condições de escalação.
+
 ---
 
 #### `GET /agent`
@@ -361,6 +363,14 @@ Permite conectar o agente a fontes de dados externas. O modelo de IA decide, com
 | A — REST API | Endpoint HTTP do cliente chamado como ferramenta | Em desenvolvimento |
 | B — SQL Connection | Query SQL gerada pela IA contra banco read-only com 5 camadas de segurança | Em desenvolvimento |
 | D — Webhook | Cliente recebe pergunta e retorna dados estruturados | Em desenvolvimento |
+
+### Atualização de dados (Opção C — File Upload)
+
+O upload de arquivo **não é restrito ao momento de criação do agente**. O cliente pode substituir ou complementar os dados indexados a qualquer momento via painel ou API. As três variações suportadas são:
+
+- **CSV / Excel** — dados tabulares estruturados (catálogo de produtos, tabela de preços, FAQ)
+- **JSON** — documentos estruturados (configurações, respostas pré-definidas, dados aninhados)
+- **PDF** — documentos não-estruturados (manuais, políticas, contratos — requer extração de texto)
 
 ### Segurança da Opção B (SQL)
 
