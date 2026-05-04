@@ -35,6 +35,7 @@ presidio-anonymizer
 # Extração de texto de arquivos
 pdfplumber
 openpyxl
+python-docx
 
 # Banco de dados
 sqlalchemy

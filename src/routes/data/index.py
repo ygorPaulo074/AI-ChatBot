@@ -97,7 +97,8 @@ def delete_chat(session_id: str, agent_id: str = Depends(authenticate_agent)):
     session = driver.load_session(agent_id, session_id)
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    driver.delete_session(agent_id, session_id)
+    now = datetime.now(timezone.utc).isoformat()
+    driver.soft_delete_session(agent_id, session_id, now)
     CacheClient().delete_session(session_id)
 
 

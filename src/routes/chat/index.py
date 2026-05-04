@@ -19,6 +19,7 @@ from src.core.schemas import SessionRecord, UserContextRecord
 from src.infrastructure.config import LIMITER, settings
 from src.services.ai_service import AIService
 from src.services.context_service import ContextService
+from src.services.escalation_service import dispatch_escalation
 from src.services import quality_analyzer
 from .schemas import (
     ChatRequest, ChatResponse, SessionInfo, TokenUsage, Message, ConversationEntry,
@@ -55,9 +56,14 @@ def send_message(request: Request, body: ChatRequest, agent_id: str = Depends(au
     if escalated:
         cache = CacheClient()
         meta = cache.get_session_meta(body.session_id)
+        history = cache.get_history(body.session_id)
         if meta and not meta.escalated:
             meta = meta.model_copy(update={"escalated": True})
             cache.set_session_meta(body.session_id, meta)
+            context_record = ContextService().load_context(agent_id)
+            if context_record:
+                dispatch_escalation(agent_id, body.session_id, "automatic",
+                                    context_record.context, meta, history)
 
     cache = CacheClient()
     meta = cache.get_session_meta(body.session_id)
@@ -175,5 +181,11 @@ def escalate_session(session_id: str, agent_id: str = Depends(authenticate_agent
 
     driver = get_driver()
     driver.save_session(_meta_to_session_record(meta, agent_id))
+
+    history = cache.get_history(session_id)
+    context_record = ContextService().load_context(agent_id)
+    if context_record:
+        dispatch_escalation(agent_id, session_id, "manual",
+                            context_record.context, meta, history)
 
     return SessionEscalateResponse(session_id=session_id, escalated=True, updated_at=now)

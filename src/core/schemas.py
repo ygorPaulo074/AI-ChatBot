@@ -54,6 +54,20 @@ class EscalationTrigger(BaseModel):
     conditions: list[EscalationCondition]
 
 
+class EscalationDestinationConfig(BaseModel):
+    type: Literal["webhook", "email", "github_issue", "queue", "none"] = "none"
+    # webhook
+    url: str | None = None
+    token: str | None = None
+    # email
+    address: str | None = None
+    # github_issue
+    repo: str | None = None          # "owner/repo"
+    github_token: str | None = None
+    # queue
+    queue_url: str | None = None
+
+
 class AgentContextBase(BaseModel):
     tone: Literal["formal", "informal", "neutro"] | None = None
     language: str | None = None
@@ -64,6 +78,7 @@ class AgentContextBase(BaseModel):
     restrictions: RestrictionsConfig | None = None
     knowledge_base: KnowledgeBaseConfig | None = None
     escalation_trigger: EscalationTrigger | None = None
+    escalation_destination: EscalationDestinationConfig | None = None
     api_datasource: ApiDatasourceConfig | None = None
     webhook_datasource: WebhookDatasourceConfig | None = None
     sql_datasource: SqlDatasourceConfig | None = None
@@ -136,6 +151,7 @@ class AgentRecord(BaseModel):
     updated_at: str
     active_since: str | None = None
     last_activity_at: str | None = None
+    deleted_at: str | None = None
 
 
 # ── Persistence: agent context (versioned) ────────────────────────────────────
@@ -175,6 +191,7 @@ class SessionRecord(BaseModel):
     total_tokens: int = 0
     resolved: bool = False
     escalated: bool = False
+    deleted_at: str | None = None
 
 
 # ── Persistence: AI-generated insight ────────────────────────────────────────
@@ -193,7 +210,7 @@ class KnowledgeFileRecord(BaseModel):
     file_id: str
     agent_id: str
     filename: str
-    file_type: Literal["csv", "json", "pdf", "excel"]
+    file_type: Literal["csv", "json", "pdf", "excel", "txt", "docx"]
     records: list[dict[str, Any]] = []
     uploaded_at: str
     updated_at: str

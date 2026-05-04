@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_CHAT: str = "60/minute"
     RATE_LIMIT_PARSE_CONTEXT: str = "10/minute"
     RATE_LIMIT_VALIDATE_SQL: str = "5/minute"
+    MAX_TOOL_ROUNDS: int = 5
 
     model_config = SettingsConfigDict(env_file=".env")
 

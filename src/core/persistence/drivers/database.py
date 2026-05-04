@@ -60,7 +60,7 @@ class DatabaseDriver(PersistenceDriver):
     def load_agent(self, agent_id: str) -> AgentRecord | None:
         with self._engine.connect() as conn:
             row = conn.execute(
-                text("SELECT * FROM agents WHERE agent_id = :id"),
+                text("SELECT * FROM agents WHERE agent_id = :id AND deleted_at IS NULL"),
                 {"id": agent_id},
             ).fetchone()
         if not row:
@@ -79,6 +79,13 @@ class DatabaseDriver(PersistenceDriver):
                     text(f"DELETE FROM {table} WHERE agent_id = :id"),
                     {"id": agent_id},
                 )
+
+    def soft_delete_agent(self, agent_id: str, deleted_at: str) -> None:
+        with self._engine.begin() as conn:
+            conn.execute(
+                text("UPDATE agents SET deleted_at = :deleted_at WHERE agent_id = :id"),
+                {"deleted_at": deleted_at, "id": agent_id},
+            )
 
     # ── Agent context ──────────────────────────────────────────────────────────
 
@@ -182,11 +189,11 @@ class DatabaseDriver(PersistenceDriver):
                 INSERT INTO sessions
                     (session_id, agent_id, user_id, model, started_at, ended_at,
                      total_messages, input_tokens, output_tokens, total_tokens,
-                     resolved, escalated)
+                     resolved, escalated, deleted_at)
                 VALUES
                     (:session_id, :agent_id, :user_id, :model, :started_at, :ended_at,
                      :total_messages, :input_tokens, :output_tokens, :total_tokens,
-                     :resolved, :escalated)
+                     :resolved, :escalated, :deleted_at)
                 ON CONFLICT (session_id) DO UPDATE SET
                     ended_at       = EXCLUDED.ended_at,
                     total_messages = EXCLUDED.total_messages,
@@ -200,7 +207,7 @@ class DatabaseDriver(PersistenceDriver):
     def load_session(self, agent_id: str, session_id: str) -> SessionRecord | None:
         with self._engine.connect() as conn:
             row = conn.execute(
-                text("SELECT * FROM sessions WHERE agent_id = :agent_id AND session_id = :session_id"),
+                text("SELECT * FROM sessions WHERE agent_id = :agent_id AND session_id = :session_id AND deleted_at IS NULL"),
                 {"agent_id": agent_id, "session_id": session_id},
             ).fetchone()
         if not row:
@@ -210,7 +217,7 @@ class DatabaseDriver(PersistenceDriver):
     def list_sessions(self, agent_id: str) -> list[SessionRecord]:
         with self._engine.connect() as conn:
             rows = conn.execute(
-                text("SELECT * FROM sessions WHERE agent_id = :id"),
+                text("SELECT * FROM sessions WHERE agent_id = :id AND deleted_at IS NULL"),
                 {"id": agent_id},
             ).fetchall()
         return [SessionRecord.model_validate(dict(row._mapping)) for row in rows]
@@ -222,6 +229,13 @@ class DatabaseDriver(PersistenceDriver):
                     text(f"DELETE FROM {table} WHERE agent_id = :agent_id AND session_id = :session_id"),
                     {"agent_id": agent_id, "session_id": session_id},
                 )
+
+    def soft_delete_session(self, agent_id: str, session_id: str, deleted_at: str) -> None:
+        with self._engine.begin() as conn:
+            conn.execute(
+                text("UPDATE sessions SET deleted_at = :deleted_at WHERE agent_id = :agent_id AND session_id = :session_id"),
+                {"deleted_at": deleted_at, "agent_id": agent_id, "session_id": session_id},
+            )
 
     # ── Session history ────────────────────────────────────────────────────────
 
@@ -417,3 +431,21 @@ class DatabaseDriver(PersistenceDriver):
         d = dict(row._mapping)
         d["context_snapshot"] = _loads(d["context_snapshot"]) or {}
         return AgentSkillRecord.model_validate(d)
+
+    # ── Soft delete purge ──────────────────────────────────────────────────────
+
+    def purge_deleted(self, before: str) -> dict:
+        agents_purged = 0
+        sessions_purged = 0
+        with self._engine.begin() as conn:
+            result = conn.execute(
+                text("DELETE FROM agents WHERE deleted_at IS NOT NULL AND deleted_at < :before"),
+                {"before": before},
+            )
+            agents_purged = result.rowcount
+            result = conn.execute(
+                text("DELETE FROM sessions WHERE deleted_at IS NOT NULL AND deleted_at < :before"),
+                {"before": before},
+            )
+            sessions_purged = result.rowcount
+        return {"agents_purged": agents_purged, "sessions_purged": sessions_purged}

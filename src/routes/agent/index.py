@@ -13,6 +13,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from src.clients.ai_client import AIClient
 from src.core.auth import authenticate_agent
@@ -179,6 +180,15 @@ Omit fields not mentioned. Use these types:
       "values": ["<string>", ...] | null,
       "threshold": <number> | null
     }]
+  } | null,
+  "escalation_destination": {
+    "type": "webhook" | "email" | "github_issue" | "queue" | "none",
+    "url": "<webhook URL>" | null,
+    "token": "<bearer token>" | null,
+    "address": "<email address>" | null,
+    "repo": "<owner/repo>" | null,
+    "github_token": "<GitHub token>" | null,
+    "queue_url": "<queue URL>" | null
   } | null
 }"""
 

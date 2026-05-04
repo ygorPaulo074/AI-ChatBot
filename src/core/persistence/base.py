@@ -37,6 +37,9 @@ class PersistenceDriver(ABC):
     @abstractmethod
     def delete_agent(self, agent_id: str) -> None: ...
 
+    @abstractmethod
+    def soft_delete_agent(self, agent_id: str, deleted_at: str) -> None: ...
+
     # ── Agent context ──────────────────────────────────────────────────────────
 
     @abstractmethod
@@ -75,6 +78,9 @@ class PersistenceDriver(ABC):
 
     @abstractmethod
     def delete_session(self, agent_id: str, session_id: str) -> None: ...
+
+    @abstractmethod
+    def soft_delete_session(self, agent_id: str, session_id: str, deleted_at: str) -> None: ...
 
     # ── Session history ────────────────────────────────────────────────────────
 
@@ -124,3 +130,10 @@ class PersistenceDriver(ABC):
 
     @abstractmethod
     def load_skill(self, agent_id: str) -> AgentSkillRecord | None: ...
+
+    # ── Soft delete purge ──────────────────────────────────────────────────────
+
+    @abstractmethod
+    def purge_deleted(self, before: str) -> dict: ...
+    """Hard-deletes agents and sessions with deleted_at < before.
+    Returns {"agents_purged": int, "sessions_purged": int}."""

@@ -538,3 +538,256 @@ class TestSqlDatasource:
         assert "secret123" not in masked
         assert "***" in masked
         assert "admin" in masked
+
+
+class TestFileExtractor:
+    """Testes unitários para src.core.ingestion.file_extractor."""
+
+    def test_txt_splits_by_double_newline(self):
+        from src.core.ingestion.file_extractor import extract
+        content = b"Hello world.\n\nSecond paragraph."
+        records = extract(content, "doc.txt")
+        assert len(records) == 2
+        assert records[0]["text"] == "Hello world."
+        assert records[1]["text"] == "Second paragraph."
+
+    def test_txt_ignores_blank_paragraphs(self):
+        from src.core.ingestion.file_extractor import extract
+        content = b"First.\n\n\n\nSecond."
+        records = extract(content, "doc.txt")
+        assert len(records) == 2
+
+    def test_txt_single_paragraph(self):
+        from src.core.ingestion.file_extractor import extract
+        content = b"Just one paragraph."
+        records = extract(content, "notes.txt")
+        assert records == [{"text": "Just one paragraph."}]
+
+    def test_docx_extracts_paragraphs(self):
+        import io
+        from docx import Document
+        from src.core.ingestion.file_extractor import extract
+        doc = Document()
+        doc.add_paragraph("First paragraph.")
+        doc.add_paragraph("Second paragraph.")
+        buf = io.BytesIO()
+        doc.save(buf)
+        records = extract(buf.getvalue(), "report.docx")
+        texts = [r["text"] for r in records]
+        assert "First paragraph." in texts
+        assert "Second paragraph." in texts
+
+    def test_docx_ignores_empty_paragraphs(self):
+        import io
+        from docx import Document
+        from src.core.ingestion.file_extractor import extract
+        doc = Document()
+        doc.add_paragraph("Content.")
+        doc.add_paragraph("")
+        buf = io.BytesIO()
+        doc.save(buf)
+        records = extract(buf.getvalue(), "file.docx")
+        assert all(r["text"] for r in records)
+
+    def test_unsupported_extension_raises(self):
+        from src.core.ingestion.file_extractor import extract
+        import pytest
+        with pytest.raises(ValueError, match="Unsupported file type"):
+            extract(b"data", "file.pptx")
+
+
+class TestKnowledgeBase:
+    """#5: Endpoints de knowledge base — upload, listagem e deleção."""
+
+    def _upload(self, client, headers, filename, content, content_type="text/csv"):
+        return client.post(
+            "/agent/knowledge/upload",
+            headers=headers,
+            files={"file": (filename, content, content_type)},
+        )
+
+    # ── Upload ────────────────────────────────────────────────────────────────
+
+    def test_upload_csv_returns_201_with_metadata(self, client, agent):
+        _, _, headers = agent
+        csv = b"titulo,conteudo\nHorario,Seg a Sex 9h-18h\n"
+        resp = self._upload(client, headers, "base.csv", csv)
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["filename"] == "base.csv"
+        assert body["file_type"] == "csv"
+        assert body["record_count"] == 1
+        assert "file_id" in body
+        assert "uploaded_at" in body
+
+    def test_upload_json_array_returns_correct_count(self, client, agent):
+        _, _, headers = agent
+        import json
+        data = json.dumps([{"titulo": "A", "conteudo": "B"}, {"titulo": "C", "conteudo": "D"}]).encode()
+        resp = self._upload(client, headers, "records.json", data, "application/json")
+        assert resp.status_code == 201
+        assert resp.json()["record_count"] == 2
+
+    def test_upload_txt_returns_201(self, client, agent):
+        _, _, headers = agent
+        resp = self._upload(client, headers, "faq.txt", b"Pergunta um.\n\nPergunta dois.", "text/plain")
+        assert resp.status_code == 201
+        assert resp.json()["file_type"] == "txt"
+        assert resp.json()["record_count"] == 2
+
+    def test_upload_docx_returns_201(self, client, agent):
+        import io
+        from docx import Document
+        _, _, headers = agent
+        doc = Document()
+        doc.add_paragraph("Conteudo do documento.")
+        buf = io.BytesIO()
+        doc.save(buf)
+        resp = self._upload(
+            client, headers, "manual.docx", buf.getvalue(),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        assert resp.status_code == 201
+        assert resp.json()["file_type"] == "docx"
+
+    def test_upload_unsupported_format_returns_422(self, client, agent):
+        _, _, headers = agent
+        resp = self._upload(client, headers, "slides.pptx", b"data", "application/octet-stream")
+        assert resp.status_code == 422
+
+    def test_upload_requires_auth(self, client):
+        csv = b"titulo,conteudo\nA,B\n"
+        resp = client.post(
+            "/agent/knowledge/upload",
+            files={"file": ("base.csv", csv, "text/csv")},
+        )
+        assert resp.status_code in (401, 403)
+
+    # ── List ──────────────────────────────────────────────────────────────────
+
+    def test_list_empty_initially(self, client, agent):
+        _, _, headers = agent
+        resp = client.get("/agent/knowledge", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["files"] == []
+
+    def test_list_reflects_uploaded_files(self, client, agent):
+        _, _, headers = agent
+        self._upload(client, headers, "a.csv", b"titulo,conteudo\nA,B\n")
+        self._upload(client, headers, "b.csv", b"titulo,conteudo\nC,D\nE,F\n")
+        resp = client.get("/agent/knowledge", headers=headers)
+        assert resp.status_code == 200
+        files = resp.json()["files"]
+        assert len(files) == 2
+        names = {f["filename"] for f in files}
+        assert names == {"a.csv", "b.csv"}
+
+    def test_list_shows_correct_record_count(self, client, agent):
+        _, _, headers = agent
+        self._upload(client, headers, "data.csv", b"titulo,conteudo\nA,B\nC,D\nE,F\n")
+        resp = client.get("/agent/knowledge", headers=headers)
+        assert resp.json()["files"][0]["record_count"] == 3
+
+    def test_list_isolated_between_agents(self, client):
+        """Arquivos de um agente não devem aparecer para outro."""
+        resp1 = client.post("/agent", json={"name": "Agent1", "owner": "o1", "context": {"tags": []}})
+        resp2 = client.post("/agent", json={"name": "Agent2", "owner": "o2", "context": {"tags": []}})
+        h1 = {"Authorization": f"Bearer {resp1.json()['api_key']}"}
+        h2 = {"Authorization": f"Bearer {resp2.json()['api_key']}"}
+        self._upload(client, h1, "data.csv", b"titulo,conteudo\nA,B\n")
+        resp = client.get("/agent/knowledge", headers=h2)
+        assert resp.json()["files"] == []
+
+    # ── Delete ────────────────────────────────────────────────────────────────
+
+    def test_delete_removes_file(self, client, agent):
+        _, _, headers = agent
+        upload = self._upload(client, headers, "del.csv", b"titulo,conteudo\nA,B\n")
+        file_id = upload.json()["file_id"]
+        resp = client.delete(f"/agent/knowledge/{file_id}", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] is True
+        files = client.get("/agent/knowledge", headers=headers).json()["files"]
+        assert all(f["file_id"] != file_id for f in files)
+
+    def test_delete_nonexistent_returns_404(self, client, agent):
+        _, _, headers = agent
+        resp = client.delete("/agent/knowledge/nonexistent-id", headers=headers)
+        assert resp.status_code == 404
+
+    def test_delete_requires_auth(self, client):
+        resp = client.delete("/agent/knowledge/some-id")
+        assert resp.status_code in (401, 403)
+
+
+class TestSoftDeletes:
+    """#17: Soft deletes em AgentRecord e SessionRecord com purge após N dias."""
+
+    def test_deleted_agent_returns_404_on_get(self, client, agent):
+        _, _, headers = agent
+        client.delete("/agent", headers=headers)
+        resp = client.get("/agent", headers=headers)
+        assert resp.status_code in (401, 403, 404)
+
+    def test_deleted_agent_returns_401_on_auth(self, client, agent):
+        _, _, headers = agent
+        client.delete("/agent", headers=headers)
+        resp = client.post("/chat", headers=headers, json={
+            "session_id": "s1", "user_id": "u1", "message": "hi",
+        })
+        assert resp.status_code in (401, 403)
+
+    def test_delete_agent_response_has_deleted_at(self, client, agent):
+        _, _, headers = agent
+        resp = client.delete("/agent", headers=headers)
+        assert resp.status_code == 200
+        assert "deleted_at" in resp.json()
+
+    def test_deleted_session_returns_404(self, client, agent, mock_ai):
+        _, _, headers = agent
+        sid = str(__import__("uuid").uuid4())
+        client.post("/chat", headers=headers, json={
+            "session_id": sid, "user_id": "u1", "message": "hi",
+        })
+        client.post(f"/chat/{sid}/end", headers=headers)
+        resp = client.delete(f"/data/chat/{sid}", headers=headers)
+        assert resp.status_code == 204
+        resp2 = client.get(f"/data/chat/{sid}", headers=headers)
+        assert resp2.status_code == 404
+
+    def test_deleted_session_absent_from_list(self, client, agent, mock_ai):
+        _, _, headers = agent
+        sid = str(__import__("uuid").uuid4())
+        client.post("/chat", headers=headers, json={
+            "session_id": sid, "user_id": "u1", "message": "hi",
+        })
+        client.post(f"/chat/{sid}/end", headers=headers)
+        client.delete(f"/data/chat/{sid}", headers=headers)
+        resp = client.get("/data/chat", headers=headers)
+        assert resp.status_code == 200
+        session_ids = [c["session_id"] for c in resp.json()["chats"]]
+        assert sid not in session_ids
+
+    def test_purge_deleted_removes_agent_after_cutoff(self, client, agent, patch_env):
+        from datetime import datetime, timezone, timedelta
+        from src.core.persistence.factory import get_driver
+        _, agent_id, headers = agent
+
+        client.delete("/agent", headers=headers)
+
+        # Simulate cutoff in the future — agent deleted_at < future cutoff → should purge
+        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        result = get_driver().purge_deleted(before=future)
+        assert result["agents_purged"] >= 1
+
+    def test_purge_before_cutoff_preserves_agent(self, client, agent, patch_env):
+        from datetime import datetime, timezone, timedelta
+        from src.core.persistence.factory import get_driver
+        _, agent_id, headers = agent
+
+        client.delete("/agent", headers=headers)
+
+        # Cutoff in the past — deleted_at > cutoff → should NOT purge
+        past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        result = get_driver().purge_deleted(before=past)
+        assert result["agents_purged"] == 0
