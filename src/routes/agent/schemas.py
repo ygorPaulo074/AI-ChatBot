@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import Optional, List
 from src.core.schemas import AgentContextBase
 from ..base_schemas import AgentContext
 
@@ -20,11 +19,11 @@ class AgentGetResponse(BaseModel):
     agent_id: str
     name: str
     owner: str
-    tags: List[str] = []
+    tags: list[str] = []
     created_at: str
     updated_at: str
-    active_since: Optional[str] = None
-    last_activity_at: Optional[str] = None
+    active_since: str | None = None
+    last_activity_at: str | None = None
 
 
 class AgentContextResponse(AgentContextBase):
@@ -35,12 +34,12 @@ class AgentContextResponse(AgentContextBase):
 class AgentContextHistoryItem(BaseModel):
     version: int
     updated_at: str
-    changes: List[str]
+    changes: list[str]
 
 
 class AgentContextHistoryResponse(BaseModel):
     agent_id: str
-    versions: List[AgentContextHistoryItem]
+    versions: list[AgentContextHistoryItem]
 
 
 class AgentMetricsResponse(BaseModel):
@@ -50,8 +49,8 @@ class AgentMetricsResponse(BaseModel):
     total_tokens: int
     resolution_rate: float
     escalation_rate: float
-    active_since: Optional[str] = None
-    last_activity_at: Optional[str] = None
+    active_since: str | None = None
+    last_activity_at: str | None = None
 
 
 class AgentUpdateContextResponse(BaseModel):
@@ -62,3 +61,29 @@ class AgentUpdateContextResponse(BaseModel):
 
 class AgentDeleteResponse(BaseModel):
     deleted_at: str
+
+
+class KnowledgeFileUploadResponse(BaseModel):
+    file_id: str
+    filename: str
+    file_type: str
+    record_count: int
+    uploaded_at: str
+
+
+class KnowledgeFileItem(BaseModel):
+    file_id: str
+    filename: str
+    file_type: str
+    record_count: int
+    uploaded_at: str
+    updated_at: str
+
+
+class KnowledgeFileListResponse(BaseModel):
+    files: list[KnowledgeFileItem]
+
+
+class KnowledgeFileDeleteResponse(BaseModel):
+    file_id: str
+    deleted: bool

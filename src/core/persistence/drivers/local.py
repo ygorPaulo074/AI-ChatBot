@@ -25,6 +25,7 @@ from src.core.schemas import (
     SessionRecord,
     InsightRecord,
     ScoreData,
+    KnowledgeFileRecord,
 )
 from src.core.security import sanitize_pii
 
@@ -84,6 +85,12 @@ class LocalDriver(PersistenceDriver):
 
     def _history_file(self, agent_id: str, session_id: str) -> Path:
         return self._agent_dir(agent_id) / "chats" / session_id / "history.json"
+
+    def _knowledge_file(self, agent_id: str, file_id: str) -> Path:
+        return self._agent_dir(agent_id) / "knowledge" / f"{file_id}.json"
+
+    def _knowledge_dir(self, agent_id: str) -> Path:
+        return self._agent_dir(agent_id) / "knowledge"
 
     # ── Agent ──────────────────────────────────────────────────────────────────
 
@@ -201,3 +208,28 @@ class LocalDriver(PersistenceDriver):
     def load_insight(self, agent_id: str, session_id: str) -> InsightRecord | None:
         data = _read(self._insights_file(agent_id, session_id))
         return InsightRecord.model_validate(data) if data else None
+
+    # ── Knowledge files ────────────────────────────────────────────────────────
+
+    def save_knowledge_file(self, agent_id: str, record: KnowledgeFileRecord) -> None:
+        _write(self._knowledge_file(agent_id, record.file_id), record.model_dump(mode="json"))
+
+    def load_knowledge_file(self, agent_id: str, file_id: str) -> KnowledgeFileRecord | None:
+        data = _read(self._knowledge_file(agent_id, file_id))
+        return KnowledgeFileRecord.model_validate(data) if data else None
+
+    def list_knowledge_files(self, agent_id: str) -> list[KnowledgeFileRecord]:
+        d = self._knowledge_dir(agent_id)
+        if not d.exists():
+            return []
+        records = []
+        for path in d.glob("*.json"):
+            data = _read(path)
+            if data:
+                records.append(KnowledgeFileRecord.model_validate(data))
+        return records
+
+    def delete_knowledge_file(self, agent_id: str, file_id: str) -> None:
+        path = self._knowledge_file(agent_id, file_id)
+        if path.exists():
+            path.unlink()

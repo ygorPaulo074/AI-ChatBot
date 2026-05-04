@@ -16,6 +16,7 @@ from src.core.schemas import (
     SessionRecord,
     InsightRecord,
     ScoreData,
+    KnowledgeFileRecord,
 )
 from src.core.security import sanitize_pii
 
@@ -69,7 +70,10 @@ class DatabaseDriver(PersistenceDriver):
 
     def delete_agent(self, agent_id: str) -> None:
         with self._engine.begin() as conn:
-            for table in ("insights", "scores", "sessions", "user_contexts", "agent_contexts", "agents"):
+            for table in (
+                "insights", "scores", "session_history", "sessions",
+                "knowledge_files", "user_contexts", "agent_contexts", "agents",
+            ):
                 conn.execute(
                     text(f"DELETE FROM {table} WHERE agent_id = :id"),
                     {"id": agent_id},
@@ -317,3 +321,52 @@ class DatabaseDriver(PersistenceDriver):
         d["key_points"] = _loads(d["key_points"]) or []
         d["suggested_actions"] = _loads(d["suggested_actions"]) or []
         return InsightRecord.model_validate(d)
+
+    # ── Knowledge files ────────────────────────────────────────────────────────
+
+    def save_knowledge_file(self, agent_id: str, record: KnowledgeFileRecord) -> None:
+        d = record.model_dump()
+        with self._engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO knowledge_files
+                    (file_id, agent_id, filename, file_type, records, uploaded_at, updated_at)
+                VALUES
+                    (:file_id, :agent_id, :filename, :file_type, :records, :uploaded_at, :updated_at)
+                ON CONFLICT (file_id) DO UPDATE SET
+                    filename   = EXCLUDED.filename,
+                    file_type  = EXCLUDED.file_type,
+                    records    = EXCLUDED.records,
+                    updated_at = EXCLUDED.updated_at
+            """), {**d, "records": _dumps(d["records"])})
+
+    def load_knowledge_file(self, agent_id: str, file_id: str) -> KnowledgeFileRecord | None:
+        with self._engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT * FROM knowledge_files WHERE agent_id = :agent_id AND file_id = :file_id"),
+                {"agent_id": agent_id, "file_id": file_id},
+            ).fetchone()
+        if not row:
+            return None
+        d = dict(row._mapping)
+        d["records"] = _loads(d["records"]) or []
+        return KnowledgeFileRecord.model_validate(d)
+
+    def list_knowledge_files(self, agent_id: str) -> list[KnowledgeFileRecord]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT * FROM knowledge_files WHERE agent_id = :id"),
+                {"id": agent_id},
+            ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row._mapping)
+            d["records"] = _loads(d["records"]) or []
+            result.append(KnowledgeFileRecord.model_validate(d))
+        return result
+
+    def delete_knowledge_file(self, agent_id: str, file_id: str) -> None:
+        with self._engine.begin() as conn:
+            conn.execute(
+                text("DELETE FROM knowledge_files WHERE agent_id = :agent_id AND file_id = :file_id"),
+                {"agent_id": agent_id, "file_id": file_id},
+            )

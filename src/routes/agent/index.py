@@ -8,10 +8,14 @@ Endpoints do agente:
   PUT    /agent/context            — atualiza contexto, incrementa versão, regenera XML
   DELETE /agent                    — remove agente, context.xml e todos os dados associados
 """
+import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from src.core.auth import authenticate_agent
+from src.core.ingestion.file_extractor import extract
+from src.core.persistence.factory import get_driver
+from src.core.schemas import KnowledgeFileRecord
 from src.services.agent_service import AgentService
 from src.services.context_service import ContextService
 from src.routes.base_schemas import AgentContext
@@ -19,6 +23,8 @@ from .schemas import (
     AgentCreateRequest, AgentCreateResponse, AgentGetResponse,
     AgentContextResponse, AgentContextHistoryResponse, AgentContextHistoryItem,
     AgentMetricsResponse, AgentUpdateContextResponse, AgentDeleteResponse,
+    KnowledgeFileUploadResponse, KnowledgeFileListResponse,
+    KnowledgeFileItem, KnowledgeFileDeleteResponse,
 )
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -84,3 +90,65 @@ def update_context(body: AgentContext, agent_id: str = Depends(authenticate_agen
 def delete_agent(agent_id: str = Depends(authenticate_agent)):
     AgentService().delete_agent(agent_id)
     return AgentDeleteResponse(deleted_at=datetime.now(timezone.utc).isoformat())
+
+
+@router.post("/knowledge/upload", response_model=KnowledgeFileUploadResponse, status_code=201)
+async def upload_knowledge_file(
+    file: UploadFile = File(...),
+    agent_id: str = Depends(authenticate_agent),
+):
+    content = await file.read()
+    try:
+        records = extract(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
+    now = datetime.now(timezone.utc).isoformat()
+    file_id = str(uuid.uuid4())
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    file_type = "excel" if ext in ("xls", "xlsx") else ext
+
+    record = KnowledgeFileRecord(
+        file_id=file_id,
+        agent_id=agent_id,
+        filename=file.filename,
+        file_type=file_type,
+        records=records,
+        uploaded_at=now,
+        updated_at=now,
+    )
+    get_driver().save_knowledge_file(agent_id, record)
+
+    return KnowledgeFileUploadResponse(
+        file_id=file_id,
+        filename=file.filename,
+        file_type=file_type,
+        record_count=len(records),
+        uploaded_at=now,
+    )
+
+
+@router.get("/knowledge", response_model=KnowledgeFileListResponse)
+def list_knowledge_files(agent_id: str = Depends(authenticate_agent)):
+    files = get_driver().list_knowledge_files(agent_id)
+    return KnowledgeFileListResponse(files=[
+        KnowledgeFileItem(
+            file_id=f.file_id,
+            filename=f.filename,
+            file_type=f.file_type,
+            record_count=len(f.records),
+            uploaded_at=f.uploaded_at,
+            updated_at=f.updated_at,
+        )
+        for f in files
+    ])
+
+
+@router.delete("/knowledge/{file_id}", response_model=KnowledgeFileDeleteResponse)
+def delete_knowledge_file(file_id: str, agent_id: str = Depends(authenticate_agent)):
+    driver = get_driver()
+    record = driver.load_knowledge_file(agent_id, file_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    driver.delete_knowledge_file(agent_id, file_id)
+    return KnowledgeFileDeleteResponse(file_id=file_id, deleted=True)

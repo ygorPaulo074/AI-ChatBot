@@ -7,10 +7,12 @@ import uuid
 import time
 from datetime import datetime, timezone
 
+import json
 from src.clients.ai_client import AIClient
 from src.core.cache.client import CacheClient
 from src.core.persistence.factory import get_driver
 from src.core.schemas import HistoryMessage, SessionMeta, SessionRecord
+from src.core.tools.file_tool import FileTool, TOOL_DEFINITION
 from src.infrastructure.config import settings
 from src.services.context_service import ContextService
 from src.services import quality_analyzer
@@ -48,8 +50,15 @@ class AIService:
         threshold = self._sentiment_threshold(agent_id)
         user_score = quality_analyzer.analyze(user_msg_id, "user", message, threshold)
 
+        tools, tool_executor = self._build_tools(agent_id)
+
         t0 = time.monotonic()
-        ai_response = self.ai_client.complete(system=system_prompt, messages=history + [user_msg])
+        ai_response = self.ai_client.complete(
+            system=system_prompt,
+            messages=history + [user_msg],
+            tools=tools or None,
+            tool_executor=tool_executor or None,
+        )
         response_time_ms = int((time.monotonic() - t0) * 1000)
 
         reply_now = datetime.now(timezone.utc).isoformat()
@@ -151,6 +160,24 @@ class AIService:
         history = self.cache.get_history(session_id)
         if history:
             driver.save_history(agent_id, session_id, history)
+
+    # ── Tool building ──────────────────────────────────────────────────────────
+
+    def _build_tools(self, agent_id: str):
+        driver = get_driver()
+        files = driver.list_knowledge_files(agent_id)
+        if not files:
+            return [], None
+        all_records = [r for f in files for r in f.records]
+        tool = FileTool(all_records)
+
+        def executor(name: str, args_json: str) -> str:
+            if name == "search_knowledge_base":
+                args = json.loads(args_json)
+                return tool.execute(args.get("query", ""))
+            return "Tool not found."
+
+        return [TOOL_DEFINITION], executor
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
