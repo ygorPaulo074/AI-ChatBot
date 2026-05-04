@@ -255,10 +255,12 @@ class DatabaseDriver(PersistenceDriver):
             conn.execute(text("""
                 INSERT INTO scores
                     (session_id, agent_id, messages, avg_sentiment_score, sentiment_label,
-                     all_topics, main_topic, intent, avg_user_message_length, updated_at)
+                     all_topics, main_topic, intent, avg_user_message_length,
+                     avg_response_time_ms, updated_at)
                 VALUES
                     (:session_id, :agent_id, :messages, :avg_sentiment_score, :sentiment_label,
-                     :all_topics, :main_topic, :intent, :avg_user_message_length, :updated_at)
+                     :all_topics, :main_topic, :intent, :avg_user_message_length,
+                     :avg_response_time_ms, :updated_at)
                 ON CONFLICT (session_id) DO UPDATE SET
                     messages                = EXCLUDED.messages,
                     avg_sentiment_score     = EXCLUDED.avg_sentiment_score,
@@ -267,6 +269,7 @@ class DatabaseDriver(PersistenceDriver):
                     main_topic              = EXCLUDED.main_topic,
                     intent                  = EXCLUDED.intent,
                     avg_user_message_length = EXCLUDED.avg_user_message_length,
+                    avg_response_time_ms    = EXCLUDED.avg_response_time_ms,
                     updated_at              = EXCLUDED.updated_at
             """), {
                 **d,
@@ -287,6 +290,20 @@ class DatabaseDriver(PersistenceDriver):
         d["messages"] = _loads(d["messages"]) or []
         d["all_topics"] = _loads(d["all_topics"]) or []
         return ScoreData.model_validate(d)
+
+    def load_all_scores(self, agent_id: str) -> list[ScoreData]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT * FROM scores WHERE agent_id = :agent_id"),
+                {"agent_id": agent_id},
+            ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row._mapping)
+            d["messages"] = _loads(d["messages"]) or []
+            d["all_topics"] = _loads(d["all_topics"]) or []
+            result.append(ScoreData.model_validate(d))
+        return result
 
     # ── Insights ───────────────────────────────────────────────────────────────
 

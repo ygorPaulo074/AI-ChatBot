@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     SQL_ALLOWED_DIALECTS: list[str] = ["postgresql", "mysql", "sqlite"]
     SQL_QUERY_TIMEOUT: int = 10
     SQL_MAX_ROWS: int = 50
+    RATE_LIMIT_CHAT: str = "60/minute"
+    RATE_LIMIT_PARSE_CONTEXT: str = "10/minute"
+    RATE_LIMIT_VALIDATE_SQL: str = "5/minute"
 
     model_config = SettingsConfigDict(env_file=".env")
 

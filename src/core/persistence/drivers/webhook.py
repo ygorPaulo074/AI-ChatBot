@@ -94,6 +94,9 @@ class WebhookDriver(PersistenceDriver):
     def load_scores(self, agent_id: str, session_id: str) -> ScoreData | None:
         raise NotImplementedError("WebhookDriver não suporta leitura.")
 
+    def load_all_scores(self, agent_id: str) -> list[ScoreData]:
+        raise NotImplementedError("WebhookDriver não suporta leitura.")
+
     # ── Insights ───────────────────────────────────────────────────────────────
 
     def save_insight(self, agent_id: str, insight: InsightRecord) -> None:

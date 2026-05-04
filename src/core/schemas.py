@@ -120,6 +120,7 @@ class ScoreData(BaseModel):
     main_topic: str | None = None
     intent: str | None = None
     avg_user_message_length: float | None = None
+    avg_response_time_ms: float = 0.0
     updated_at: str
 
 

@@ -12,10 +12,11 @@ Endpoints do agente:
 import json
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 from src.clients.ai_client import AIClient
 from src.core.auth import authenticate_agent
+from src.infrastructure.config import LIMITER, settings
 from src.core.ingestion.file_extractor import extract
 from src.core.persistence.factory import get_driver
 from src.core.schemas import KnowledgeFileRecord
@@ -183,7 +184,8 @@ Omit fields not mentioned. Use these types:
 
 
 @router.post("/validate-sql", response_model=ValidateSqlResponse)
-def validate_sql_connection(body: ValidateSqlRequest):
+@LIMITER.limit(settings.RATE_LIMIT_VALIDATE_SQL)
+def validate_sql_connection(request: Request, body: ValidateSqlRequest):
     from urllib.parse import urlparse
     from src.core.tools.sql_tool import validate_connection_string
     from sqlalchemy import create_engine, inspect
@@ -207,7 +209,8 @@ def validate_sql_connection(body: ValidateSqlRequest):
 
 
 @router.post("/parse-context", response_model=ParseContextResponse)
-def parse_context_from_text(body: ParseContextRequest):
+@LIMITER.limit(settings.RATE_LIMIT_PARSE_CONTEXT)
+def parse_context_from_text(request: Request, body: ParseContextRequest):
     from src.core.schemas import HistoryMessage
     dummy_msg = HistoryMessage(
         message_id="0", session_id="0", role="user",

@@ -10,12 +10,13 @@ Ciclo de vida da sessão:
   POST /chat/{session_id}/escalate  — marca a sessão como escalonada (escalated=true)
 """
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.core.auth import authenticate_agent
 from src.core.cache.client import CacheClient
 from src.core.persistence.factory import get_driver
 from src.core.schemas import SessionRecord, UserContextRecord
+from src.infrastructure.config import LIMITER, settings
 from src.services.ai_service import AIService
 from src.services.context_service import ContextService
 from src.services import quality_analyzer
@@ -45,7 +46,8 @@ def _meta_to_session_record(meta, agent_id: str) -> SessionRecord:
 
 
 @router.post("", response_model=ChatResponse)
-def send_message(body: ChatRequest, agent_id: str = Depends(authenticate_agent)):
+@LIMITER.limit(settings.RATE_LIMIT_CHAT)
+def send_message(request: Request, body: ChatRequest, agent_id: str = Depends(authenticate_agent)):
     ai = AIService()
     result = ai.process_message(agent_id, body.session_id, body.user_id, body.message)
 

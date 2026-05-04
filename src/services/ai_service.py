@@ -88,6 +88,11 @@ class AIService:
         scores = quality_analyzer.update_session_scores(
             session_id, scores, assistant_score, reply_now, threshold
         )
+
+        prev_rt = [m.response_time_ms for m in history if m.role == "assistant" and m.response_time_ms is not None]
+        all_rt = prev_rt + [response_time_ms]
+        scores = scores.model_copy(update={"avg_response_time_ms": round(sum(all_rt) / len(all_rt), 1)})
+
         self.cache.set_scores(session_id, scores)
 
         meta = self.cache.get_session_meta(session_id)

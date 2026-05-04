@@ -85,3 +85,49 @@ class TestSessionLifecycle:
         _, _, headers = agent
         resp = client.post("/chat/nonexistent-session-id/end", headers=headers)
         assert resp.status_code == 404
+
+
+class TestB3RateLimiting:
+    def test_chat_endpoint_accepts_request_parameter(self):
+        """B3: send_message deve declarar request: Request para o LIMITER funcionar."""
+        import inspect
+        from src.routes.chat.index import send_message
+        params = inspect.signature(send_message).parameters
+        assert "request" in params
+
+    def test_parse_context_endpoint_accepts_request_parameter(self):
+        """B3: parse_context_from_text deve declarar request: Request para o LIMITER funcionar."""
+        import inspect
+        from src.routes.agent.index import parse_context_from_text
+        params = inspect.signature(parse_context_from_text).parameters
+        assert "request" in params
+
+    def test_validate_sql_endpoint_accepts_request_parameter(self):
+        """B3: validate_sql_connection deve declarar request: Request para o LIMITER funcionar."""
+        import inspect
+        from src.routes.agent.index import validate_sql_connection
+        params = inspect.signature(validate_sql_connection).parameters
+        assert "request" in params
+
+    def test_rate_limit_exceeded_returns_429(self, client, agent, mock_ai):
+        """B3: após exceder o limite, a rota deve retornar 429 com o formato correto."""
+        from unittest.mock import Mock, patch
+        from slowapi.errors import RateLimitExceeded
+        from src.infrastructure.config import LIMITER
+
+        _, _, headers = agent
+        mock_limit = Mock()
+        mock_limit.error_message = None
+        with patch.object(LIMITER, "_check_request_limit", side_effect=RateLimitExceeded(mock_limit)):
+            resp = client.post("/chat", headers=headers, json=CHAT_PAYLOAD)
+
+        assert resp.status_code == 429
+        body = resp.json()
+        assert body["error"] == "rate_limit_exceeded"
+
+    def test_rate_limit_config_values_are_set(self):
+        """B3: os três limites devem estar configurados no settings."""
+        from src.infrastructure.config import settings
+        assert settings.RATE_LIMIT_CHAT
+        assert settings.RATE_LIMIT_PARSE_CONTEXT
+        assert settings.RATE_LIMIT_VALIDATE_SQL

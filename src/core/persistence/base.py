@@ -92,6 +92,9 @@ class PersistenceDriver(ABC):
     @abstractmethod
     def load_scores(self, agent_id: str, session_id: str) -> ScoreData | None: ...
 
+    @abstractmethod
+    def load_all_scores(self, agent_id: str) -> list[ScoreData]: ...
+
     # ── Insights ───────────────────────────────────────────────────────────────
 
     @abstractmethod

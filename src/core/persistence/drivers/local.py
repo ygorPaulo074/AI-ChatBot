@@ -207,6 +207,18 @@ class LocalDriver(PersistenceDriver):
         data = _read(self._scores_file(agent_id, session_id))
         return ScoreData.model_validate(data) if data else None
 
+    def load_all_scores(self, agent_id: str) -> list[ScoreData]:
+        chats_dir = self._chats_dir(agent_id)
+        if not chats_dir.exists():
+            return []
+        result = []
+        for session_dir in chats_dir.iterdir():
+            if session_dir.is_dir():
+                data = _read(session_dir / "scores.json")
+                if data:
+                    result.append(ScoreData.model_validate(data))
+        return result
+
     # ── Insights ───────────────────────────────────────────────────────────────
 
     def save_insight(self, agent_id: str, insight: InsightRecord) -> None:
