@@ -7,7 +7,7 @@ PII sanitisation and security are the responsibility of the concrete drivers.
 """
 from abc import ABC, abstractmethod
 
-from src.domain.agent import AgentRecord, AgentContextRecord, AgentSkillRecord
+from src.domain.agent import AgentRecord, AgentContextRecord
 from src.domain.conversation import HistoryMessage, SessionRecord, ScoreData
 from src.domain.knowledge import KnowledgeFileRecord
 from src.domain.analytics import UserContextRecord, InsightRecord
@@ -114,14 +114,6 @@ class PersistenceDriver(ABC):
 
     @abstractmethod
     def delete_knowledge_file(self, agent_id: str, file_id: str) -> None: ...
-
-    # ── Agent skills ───────────────────────────────────────────────────────────
-
-    @abstractmethod
-    def save_skill(self, agent_id: str, record: AgentSkillRecord) -> None: ...
-
-    @abstractmethod
-    def load_skill(self, agent_id: str) -> AgentSkillRecord | None: ...
 
     # ── Soft delete purge ──────────────────────────────────────────────────────
 

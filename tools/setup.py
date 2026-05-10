@@ -18,7 +18,6 @@ import requests
 sys.path.insert(0, str(Path(__file__).parent))
 from deployment_scripts import (
     create_sql_scripts,
-    create_prisma_migrate,
     generate_dockerfile,
     generate_docker_compose,
 )
@@ -515,23 +514,15 @@ def run_setup() -> None:
             while True:
                 gen = _ask("Generate schema scripts?", "yes").lower()
                 if gen in ("yes", "y"):
-                    print()
-                    _opt(1, "SQL Script")
-                    _opt(2, "Prisma Migrate")
-                    schema_type = _ask("Option")
                     os.makedirs("scripts", exist_ok=True)
-                    if schema_type == "1":
-                        create_sql_scripts()
-                        if not is_docker:
-                            print(f"  {_LINE}  {_DIM}Applying schema to database...{_RST} ", end="", flush=True)
-                            if _apply_schema_directly(database_url):
-                                print(f"{_GRN}✓{_RST}")
-                            else:
-                                print(f"{_YLW}skipped{_RST}")
-                                _warn("Apply manually: psql $DATABASE_URL -f scripts/schema.sql")
-                    elif schema_type == "2":
-                        create_prisma_migrate()
-                        _warn("Run 'prisma db push' or 'prisma migrate deploy' to apply.")
+                    create_sql_scripts()
+                    if not is_docker:
+                        print(f"  {_LINE}  {_DIM}Applying schema to database...{_RST} ", end="", flush=True)
+                        if _apply_schema_directly(database_url):
+                            print(f"{_GRN}✓{_RST}")
+                        else:
+                            print(f"{_YLW}skipped{_RST}")
+                            _warn("Apply manually: psql $DATABASE_URL -f scripts/schema.sql")
                     break
                 elif gen in ("no", "n"):
                     _warn("Create the schema manually before starting.")
