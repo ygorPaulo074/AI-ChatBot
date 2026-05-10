@@ -284,9 +284,9 @@ def generate_dockerfile(port: str = "8000") -> None:
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements*.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m spacy download en_core_web_sm
+RUN python -m spacy download en_core_web_sm && python -m spacy download pt_core_news_sm
 
 COPY . .
 
@@ -304,8 +304,14 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{port}"]
 
 def generate_docker_compose(port: str = "8000", storage_type: str = "local") -> None:
     db_block = ""
+    db_migrate_block = ""
     db_depends = ""
     db_volume = ""
+    data_volume = ""
+    db_env_override = ""
+
+    if storage_type == "local":
+        data_volume = "      - ./data:/app/data\n"
 
     if storage_type == "database":
         db_block = """
@@ -318,29 +324,54 @@ def generate_docker_compose(port: str = "8000", storage_type: str = "local") -> 
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${DB_USER} -d $${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 """
-        db_depends = "\n      - db"
+        db_migrate_block = """
+  db-migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./scripts/schema.sql:/schema.sql:ro
+    command: >
+      sh -c "if [ -f /schema.sql ];
+             then psql -h db -U $${DB_USER} -d $${DB_NAME} -f /schema.sql;
+             else echo 'schema.sql not found — skipping migration.'; fi"
+    restart: "no"
+"""
+        db_depends = """      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started"""
         db_volume = "  db_data:\n"
+        db_env_override = """    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}"
+"""
+
+    api_depends = f"""    depends_on:
+      - redis""" if storage_type != "database" else f"""    depends_on:
+{db_depends}"""
+
+    api_volumes = f"    volumes:\n{data_volume}" if data_volume else ""
 
     content = f"""services:
   api:
     build: .
+    image: ai-chatbot-api:${{APP_VERSION}}
     ports:
       - "{port}:{port}"
     env_file:
       - .env
-    depends_on:
-      - redis{db_depends}
+{db_env_override}{api_depends}
     restart: unless-stopped
-    volumes:
-      - ./data:/app/data
-{db_block}
+{api_volumes}{db_block}{db_migrate_block}
   redis:
     image: redis:7-alpine
     restart: unless-stopped

@@ -64,6 +64,13 @@ class DatabaseDriver(PersistenceDriver):
             return None
         return AgentRecord.model_validate(dict(row._mapping))
 
+    def list_agents(self) -> list[AgentRecord]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT * FROM agents WHERE deleted_at IS NULL ORDER BY created_at DESC")
+            ).fetchall()
+        return [AgentRecord.model_validate(dict(r._mapping)) for r in rows]
+
     def delete_agent(self, agent_id: str) -> None:
         with self._engine.begin() as conn:
             for table in (

@@ -24,6 +24,9 @@ class PersistenceDriver(ABC):
     def load_agent(self, agent_id: str) -> AgentRecord | None: ...
 
     @abstractmethod
+    def list_agents(self) -> list[AgentRecord]: ...
+
+    @abstractmethod
     def delete_agent(self, agent_id: str) -> None: ...
 
     @abstractmethod

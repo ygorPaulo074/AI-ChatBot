@@ -105,6 +105,20 @@ class LocalDriver(PersistenceDriver):
         record = AgentRecord.model_validate(data)
         return None if record.deleted_at else record
 
+    def list_agents(self) -> list[AgentRecord]:
+        agents_dir = self._base / "agents"
+        if not agents_dir.exists():
+            return []
+        result = []
+        for agent_dir in agents_dir.iterdir():
+            if agent_dir.is_dir():
+                data = _read(agent_dir / "agent.json")
+                if data:
+                    record = AgentRecord.model_validate(data)
+                    if not record.deleted_at:
+                        result.append(record)
+        return sorted(result, key=lambda r: r.created_at, reverse=True)
+
     def delete_agent(self, agent_id: str) -> None:
         agent_dir = self._agent_dir(agent_id)
         if agent_dir.exists():

@@ -28,6 +28,9 @@ class WebhookDriver(PersistenceDriver):
     def load_agent(self, agent_id: str) -> AgentRecord | None:
         raise NotImplementedError("WebhookDriver não suporta leitura.")
 
+    def list_agents(self) -> list[AgentRecord]:
+        raise NotImplementedError("WebhookDriver não suporta leitura.")
+
     def delete_agent(self, agent_id: str) -> None:
         self._post({"type": "agent", "action": "delete", "agent_id": agent_id})
 
